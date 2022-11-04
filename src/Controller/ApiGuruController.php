@@ -11,7 +11,7 @@ use Symfony\Component\Routing\Annotation\Route;
 class ApiGuruController extends AbstractController
 {
     #[Route('/guru/{url}/{nb_pages}', name: 'api_guru')]
-    public function index(string $url, int $nb_pages = 1, RestaurantGuru $guru): Response
+    public function index(string $url, RestaurantGuru $guru, int $nb_pages = 1): Response
     {
         $url = base64_decode($url);
 

@@ -188,7 +188,7 @@ class DeprecationErrorHandler
         if (class_exists(DebugClassLoader::class, false)) {
             DebugClassLoader::checkClasses();
         }
-        $currErrorHandler = set_error_handler('var_dump');
+        $currErrorHandler = set_error_handler('is_int');
         restore_error_handler();
 
         if ($currErrorHandler !== [$this, 'handleError']) {
@@ -408,11 +408,11 @@ class DeprecationErrorHandler
         }
 
         if (\function_exists('stream_isatty')) {
-            return stream_isatty(\STDOUT);
+            return @stream_isatty(\STDOUT);
         }
 
         if (\function_exists('posix_isatty')) {
-            return posix_isatty(\STDOUT);
+            return @posix_isatty(\STDOUT);
         }
 
         $stat = fstat(\STDOUT);

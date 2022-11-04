@@ -16,6 +16,7 @@ use Doctrine\Common\Persistence\Mapping\ClassMetadata as LegacyClassMetadata;
 use Doctrine\Common\Persistence\Mapping\MappingException as LegacyPersistenceMappingException;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Mapping\Driver\AnnotationDriver;
 use Doctrine\ORM\Mapping\Driver\AttributeDriver;
 use Doctrine\ORM\Mapping\MappingException as ORMMappingException;
 use Doctrine\ORM\Mapping\NamingStrategy;
@@ -23,7 +24,7 @@ use Doctrine\ORM\Tools\DisconnectedClassMetadataFactory;
 use Doctrine\Persistence\ManagerRegistry;
 use Doctrine\Persistence\Mapping\AbstractClassMetadataFactory;
 use Doctrine\Persistence\Mapping\ClassMetadata;
-use Doctrine\Persistence\Mapping\Driver\AnnotationDriver;
+use Doctrine\Persistence\Mapping\Driver\AnnotationDriver as LegacyAnnotationDriver;
 use Doctrine\Persistence\Mapping\Driver\MappingDriver;
 use Doctrine\Persistence\Mapping\Driver\MappingDriverChain;
 use Doctrine\Persistence\Mapping\MappingException as PersistenceMappingException;
@@ -141,7 +142,7 @@ final class DoctrineHelper
 
     public function isClassAnnotated(string $className): bool
     {
-        return $this->doesClassUseDriver($className, AnnotationDriver::class);
+        return $this->doesClassUseDriver($className, $this->getAnnotationDriver());
     }
 
     public function doesClassUsesAttributes(string $className): bool
@@ -161,7 +162,6 @@ final class DoctrineHelper
         if ($this->isDoctrineInstalled()) {
             $allMetadata = $this->getMetadata();
 
-            /* @var ClassMetadata $metadata */
             foreach (array_keys($allMetadata) as $classname) {
                 $entityClassDetails = new ClassNameDetails($classname, $this->entityNamespace);
                 $entities[] = $entityClassDetails->getRelativeName();
@@ -178,13 +178,24 @@ final class DoctrineHelper
      */
     public function getMetadata(string $classOrNamespace = null, bool $disconnected = false)
     {
-        $classNames = (new \ReflectionClass(AnnotationDriver::class))->getProperty('classNames');
+        $classNames = (new \ReflectionClass($this->getAnnotationDriver()))->getProperty('classNames');
         $classNames->setAccessible(true);
 
         // Invalidating the cached AnnotationDriver::$classNames to find new Entity classes
         foreach ($this->mappingDriversByPrefix ?? [] as $managerName => $prefixes) {
             foreach ($prefixes as [$prefix, $annotationDriver]) {
-                if (null !== $annotationDriver) {
+                if (null === $annotationDriver) {
+                    continue;
+                }
+                if (class_exists($this->getAnnotationDriver())) {
+                    $classNames = (new \ReflectionClass($this->getAnnotationDriver()))->getProperty('classNames');
+                }
+                if ($annotationDriver instanceof AttributeDriver) {
+                    $classNames = (new \ReflectionClass(AttributeDriver::class))->getProperty('classNames');
+                }
+
+                if (isset($classNames)) {
+                    $classNames->setAccessible(true);
                     $classNames->setValue($annotationDriver, null);
                 }
             }
@@ -219,7 +230,7 @@ final class DoctrineHelper
                     $metadataDriver = $em->getConfiguration()->getMetadataDriverImpl();
                     if ($this->isInstanceOf($metadataDriver, MappingDriverChain::class)) {
                         foreach ($metadataDriver->getDrivers() as $driver) {
-                            if ($this->isInstanceOf($driver, AnnotationDriver::class)) {
+                            if ($this->isInstanceOf($driver, $this->getAnnotationDriver())) {
                                 $classNames->setValue($driver, null);
                             }
                         }
@@ -311,7 +322,7 @@ final class DoctrineHelper
         $lowestCharacterDiff = null;
         $foundDriver = null;
 
-        foreach ($this->mappingDriversByPrefix as $key => $mappings) {
+        foreach ($this->mappingDriversByPrefix ?? [] as $mappings) {
             foreach ($mappings as [$prefix, $driver]) {
                 $diff = substr_compare($namespace, $prefix, 0);
 
@@ -323,5 +334,17 @@ final class DoctrineHelper
         }
 
         return $foundDriver;
+    }
+
+    /**
+     * Only needed in 1.39.x releases - AnnotationDriver was moved from Doctrine Persistence -> ORM.
+     */
+    private function getAnnotationDriver(): string
+    {
+        if (class_exists(AnnotationDriver::class)) {
+            return AnnotationDriver::class;
+        }
+
+        return LegacyAnnotationDriver::class;
     }
 }

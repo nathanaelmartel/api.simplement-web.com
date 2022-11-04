@@ -859,7 +859,7 @@ class Configuration implements ConfigurationInterface
                     ->{$enableIfStandalone('symfony/validator', Validation::class)}()
                     ->children()
                         ->scalarNode('cache')->end()
-                        ->booleanNode('enable_annotations')->{!class_exists(FullStack::class) && $willBeAvailable('doctrine/annotations', Annotation::class, 'symfony/validator') ? 'defaultTrue' : 'defaultFalse'}()->end()
+                        ->booleanNode('enable_annotations')->{!class_exists(FullStack::class) && (\PHP_VERSION_ID >= 80000 || $willBeAvailable('doctrine/annotations', Annotation::class, 'symfony/validator')) ? 'defaultTrue' : 'defaultFalse'}()->end()
                         ->arrayNode('static_method')
                             ->defaultValue(['loadValidatorMetadata'])
                             ->prototype('scalar')->end()
@@ -942,8 +942,8 @@ class Configuration implements ConfigurationInterface
 
     private function addAnnotationsSection(ArrayNodeDefinition $rootNode, callable $willBeAvailable)
     {
-        $doctrineCache = $willBeAvailable('doctrine/cache', Cache::class, 'doctrine/annotation');
-        $psr6Cache = $willBeAvailable('symfony/cache', PsrCachedReader::class, 'doctrine/annotation');
+        $doctrineCache = $willBeAvailable('doctrine/cache', Cache::class, 'doctrine/annotations');
+        $psr6Cache = $willBeAvailable('symfony/cache', PsrCachedReader::class, 'doctrine/annotations');
 
         $rootNode
             ->children()
@@ -968,7 +968,7 @@ class Configuration implements ConfigurationInterface
                     ->info('serializer configuration')
                     ->{$enableIfStandalone('symfony/serializer', Serializer::class)}()
                     ->children()
-                        ->booleanNode('enable_annotations')->{!class_exists(FullStack::class) && $willBeAvailable('doctrine/annotations', Annotation::class, 'symfony/serializer') ? 'defaultTrue' : 'defaultFalse'}()->end()
+                        ->booleanNode('enable_annotations')->{!class_exists(FullStack::class) && (\PHP_VERSION_ID >= 80000 || $willBeAvailable('doctrine/annotations', Annotation::class, 'symfony/serializer')) ? 'defaultTrue' : 'defaultFalse'}()->end()
                         ->scalarNode('name_converter')->end()
                         ->scalarNode('circular_reference_handler')->end()
                         ->scalarNode('max_depth_handler')->end()
@@ -1052,13 +1052,14 @@ class Configuration implements ConfigurationInterface
                             ->prototype('array')
                                 ->fixXmlConfig('adapter')
                                 ->beforeNormalization()
-                                    ->ifTrue(function ($v) { return (isset($v['adapters']) || \is_array($v['adapter'] ?? null)) && isset($v['provider']); })
-                                    ->thenInvalid('Pool cannot have a "provider" while "adapter" is set to a map')
+                                    ->ifTrue(function ($v) { return isset($v['provider']) && \is_array($v['adapters'] ?? $v['adapter'] ?? null) && 1 < \count($v['adapters'] ?? $v['adapter']); })
+                                    ->thenInvalid('Pool cannot have a "provider" while more than one adapter is defined')
                                 ->end()
                                 ->children()
                                     ->arrayNode('adapters')
                                         ->performNoDeepMerging()
                                         ->info('One or more adapters to chain for creating the pool, defaults to "cache.app".')
+                                        ->beforeNormalization()->castToArray()->end()
                                         ->beforeNormalization()
                                             ->always()->then(function ($values) {
                                                 if ([0] === array_keys($values) && \is_array($values[0])) {

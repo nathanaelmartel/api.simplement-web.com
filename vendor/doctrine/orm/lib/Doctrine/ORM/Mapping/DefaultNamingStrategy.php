@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Doctrine\ORM\Mapping;
 
-use function strpos;
+use function str_contains;
 use function strrpos;
 use function strtolower;
 use function substr;
@@ -21,7 +21,7 @@ class DefaultNamingStrategy implements NamingStrategy
      */
     public function classToTableName($className)
     {
-        if (strpos($className, '\\') !== false) {
+        if (str_contains($className, '\\')) {
             return substr($className, strrpos($className, '\\') + 1);
         }
 
@@ -54,6 +54,9 @@ class DefaultNamingStrategy implements NamingStrategy
 
     /**
      * {@inheritdoc}
+     *
+     * @param string       $propertyName
+     * @param class-string $className
      */
     public function joinColumnName($propertyName, $className = null)
     {

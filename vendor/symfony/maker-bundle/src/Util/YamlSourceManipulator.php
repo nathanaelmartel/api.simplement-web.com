@@ -479,7 +479,7 @@ class YamlSourceManipulator
             // this means we need to break onto the next line
 
             // increase(override) the indentation
-            $newYamlValue = "\n".$this->indentMultilineYamlArray($newYamlValue, ($this->indentationForDepths[$this->depth] + $this->getPreferredIndentationSize()));
+            $newYamlValue = "\n".$this->indentMultilineYamlArray($newYamlValue, $this->indentationForDepths[$this->depth] + $this->getPreferredIndentationSize());
         } elseif ($this->isCurrentArrayMultiline() && $this->isCurrentArraySequence()) {
             // we are a multi-line sequence, so drop to next line, indent and add "- " in front
             $newYamlValue = "\n".$this->indentMultilineYamlArray('- '.$newYamlValue);
@@ -628,7 +628,7 @@ class YamlSourceManipulator
         }
 
         // find either a line break or a , that is the end of the previous key
-        while (\in_array(($char = substr($this->contents, $startOfKey - 1, 1)), [',', "\n"])) {
+        while (\in_array($char = substr($this->contents, $startOfKey - 1, 1), [',', "\n"])) {
             --$startOfKey;
         }
 
@@ -684,7 +684,7 @@ class YamlSourceManipulator
 
     private function getKeyRegex($key)
     {
-        return sprintf('#\b%s\'?( )*:#', preg_quote($key));
+        return sprintf('#(?<!\w)\$?%s\'?( )*:#', preg_quote($key));
     }
 
     private function updateContents(string $newContents, array $newData, int $newPosition)
@@ -714,7 +714,7 @@ class YamlSourceManipulator
     private function convertToYaml($data)
     {
         $indent = $this->depth > 0 && isset($this->indentationForDepths[$this->depth])
-            ? $this->indentationForDepths[$this->depth] / $this->depth
+            ? intdiv($this->indentationForDepths[$this->depth], $this->depth)
             : 4;
 
         $newDataString = Yaml::dump($data, 4, $indent);
@@ -835,7 +835,7 @@ class YamlSourceManipulator
             return $endKeyPosition;
         }
 
-        if (is_scalar($value) || null === $value) {
+        if (\is_scalar($value) || null === $value) {
             $offset = null === $offset ? $this->currentPosition : $offset;
 
             if (\is_bool($value)) {
@@ -1132,7 +1132,7 @@ class YamlSourceManipulator
                 unset($data[$key]);
             }
 
-            if (0 === strpos($val, self::COMMENT_PLACEHOLDER_VALUE)) {
+            if (null !== $val && 0 === strpos($val, self::COMMENT_PLACEHOLDER_VALUE)) {
                 unset($data[$key]);
             }
         }

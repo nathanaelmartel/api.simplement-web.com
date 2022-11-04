@@ -13,6 +13,7 @@ use Doctrine\ORM\Tools\SchemaValidator;
 use Doctrine\Persistence\ManagerRegistry;
 use Doctrine\Persistence\Mapping\AbstractClassMetadataFactory;
 use Symfony\Bridge\Doctrine\DataCollector\DoctrineDataCollector as BaseCollector;
+use Symfony\Bridge\Doctrine\Middleware\Debug\DebugDataHolder;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
@@ -25,7 +26,7 @@ use function usort;
 
 /**
  * @psalm-type QueryType = array{
- *    executionMS: int,
+ *    executionMS: float,
  *    explainable: bool,
  *    sql: string,
  *    params: ?array<array-key, mixed>,
@@ -64,12 +65,18 @@ class DoctrineDataCollector extends BaseCollector
     /** @var bool */
     private $shouldValidateSchema;
 
-    public function __construct(ManagerRegistry $registry, bool $shouldValidateSchema = true)
+    /** @psalm-suppress UndefinedClass */
+    public function __construct(ManagerRegistry $registry, bool $shouldValidateSchema = true, ?DebugDataHolder $debugDataHolder = null)
     {
         $this->registry             = $registry;
         $this->shouldValidateSchema = $shouldValidateSchema;
 
-        parent::__construct($registry);
+        if ($debugDataHolder === null) {
+            parent::__construct($registry);
+        } else {
+            /** @psalm-suppress TooManyArguments */
+            parent::__construct($registry, $debugDataHolder);
+        }
     }
 
     /**
@@ -290,7 +297,7 @@ class DoctrineDataCollector extends BaseCollector
         return $this->groupedQueries;
     }
 
-    private function executionTimePercentage(int $executionTimeMS, int $totalExecutionTimeMS): float
+    private function executionTimePercentage(float $executionTimeMS, float $totalExecutionTimeMS): float
     {
         if (! $totalExecutionTimeMS) {
             return 0;

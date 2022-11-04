@@ -26,26 +26,26 @@ class LocateFunction extends FunctionNode
     /** @var SimpleArithmeticExpression|bool */
     public $simpleArithmeticExpression = false;
 
-    /**
-     * @override
-     * @inheritdoc
-     */
+    /** @inheritdoc */
     public function getSql(SqlWalker $sqlWalker)
     {
-        return $sqlWalker->getConnection()->getDatabasePlatform()->getLocateExpression(
-            $sqlWalker->walkStringPrimary($this->secondStringPrimary), // its the other way around in platform
-            $sqlWalker->walkStringPrimary($this->firstStringPrimary),
-            ($this->simpleArithmeticExpression
-                ? $sqlWalker->walkSimpleArithmeticExpression($this->simpleArithmeticExpression)
-                : false
-            )
-        );
+        $platform = $sqlWalker->getConnection()->getDatabasePlatform();
+
+        $firstString  = $sqlWalker->walkStringPrimary($this->firstStringPrimary);
+        $secondString = $sqlWalker->walkStringPrimary($this->secondStringPrimary);
+
+        if ($this->simpleArithmeticExpression) {
+            return $platform->getLocateExpression(
+                $secondString,
+                $firstString,
+                $sqlWalker->walkSimpleArithmeticExpression($this->simpleArithmeticExpression)
+            );
+        }
+
+        return $platform->getLocateExpression($secondString, $firstString);
     }
 
-    /**
-     * @override
-     * @inheritdoc
-     */
+    /** @inheritdoc */
     public function parse(Parser $parser)
     {
         $parser->match(Lexer::T_IDENTIFIER);

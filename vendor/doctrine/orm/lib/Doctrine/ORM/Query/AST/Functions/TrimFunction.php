@@ -28,7 +28,7 @@ class TrimFunction extends FunctionNode
     /** @var bool */
     public $both;
 
-    /** @var bool */
+    /** @var string|false */
     public $trimChar = false;
 
     /** @var Node */
@@ -42,11 +42,16 @@ class TrimFunction extends FunctionNode
         $stringPrimary = $sqlWalker->walkStringPrimary($this->stringPrimary);
         $platform      = $sqlWalker->getConnection()->getDatabasePlatform();
         $trimMode      = $this->getTrimMode();
-        $trimChar      = $this->trimChar !== false
-            ? $sqlWalker->getConnection()->quote($this->trimChar)
-            : false;
 
-        return $platform->getTrimExpression($stringPrimary, $trimMode, $trimChar);
+        if ($this->trimChar !== false) {
+            return $platform->getTrimExpression(
+                $stringPrimary,
+                $trimMode,
+                $platform->quoteStringLiteral($this->trimChar)
+            );
+        }
+
+        return $platform->getTrimExpression($stringPrimary, $trimMode);
     }
 
     /**
@@ -76,9 +81,7 @@ class TrimFunction extends FunctionNode
         $parser->match(Lexer::T_CLOSE_PARENTHESIS);
     }
 
-    /**
-     * @psalm-return TrimMode::*
-     */
+    /** @psalm-return TrimMode::* */
     private function getTrimMode(): int
     {
         if ($this->leading) {

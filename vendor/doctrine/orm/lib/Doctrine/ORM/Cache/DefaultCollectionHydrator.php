@@ -11,7 +11,6 @@ use Doctrine\ORM\PersistentCollection;
 use Doctrine\ORM\Query;
 use Doctrine\ORM\UnitOfWork;
 
-use function array_walk;
 use function assert;
 
 /**
@@ -28,9 +27,7 @@ class DefaultCollectionHydrator implements CollectionHydrator
     /** @var array<string,mixed> */
     private static $hints = [Query::HINT_CACHE_ENABLED => true];
 
-    /**
-     * @param EntityManagerInterface $em The entity manager.
-     */
+    /** @param EntityManagerInterface $em The entity manager. */
     public function __construct(EntityManagerInterface $em)
     {
         $this->em  = $em;

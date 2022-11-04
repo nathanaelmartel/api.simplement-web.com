@@ -13,6 +13,8 @@ namespace Symfony\Bundle\MakerBundle\Maker;
 
 use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
 use Doctrine\Common\Annotations\Annotation;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Mapping\Column;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Bundle\MakerBundle\ConsoleStyle;
@@ -47,7 +49,10 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Routing\RouterInterface;
 use Symfony\Component\Security\Core\Encoder\UserPasswordEncoderInterface;
 use Symfony\Component\Security\Guard\GuardAuthenticatorHandler;
+use Symfony\Component\Security\Http\Authentication\UserAuthenticatorInterface;
+use Symfony\Component\Translation\Translator;
 use Symfony\Component\Validator\Validation;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use SymfonyCasts\Bundle\VerifyEmail\Exception\VerifyEmailExceptionInterface;
 use SymfonyCasts\Bundle\VerifyEmail\Model\VerifyEmailSignatureComponents;
 use SymfonyCasts\Bundle\VerifyEmail\SymfonyCastsVerifyEmailBundle;
@@ -78,6 +83,7 @@ final class MakeRegistrationForm extends AbstractMaker
     private $firewallName;
     private $redirectRouteName;
     private $addUniqueEntityConstraint;
+    private $useNewAuthenticatorSystem = false;
 
     public function __construct(FileManager $fileManager, FormTypeRenderer $formTypeRenderer, RouterInterface $router, DoctrineHelper $doctrineHelper)
     {
@@ -115,6 +121,11 @@ final class MakeRegistrationForm extends AbstractMaker
         $manipulator = new YamlSourceManipulator($this->fileManager->getFileContents($path));
         $securityData = $manipulator->getData();
         $providersData = $securityData['security']['providers'] ?? [];
+
+        // Determine if we should use new security features introduced in Symfony 5.2
+        if ($securityData['security']['enable_authenticator_manager'] ?? false) {
+            $this->useNewAuthenticatorSystem = true;
+        }
 
         $this->userClass = $interactiveSecurityHelper->guessUserClass(
             $io,
@@ -292,6 +303,7 @@ final class MakeRegistrationForm extends AbstractMaker
             Response::class,
             Route::class,
             $passwordHasher,
+            EntityManagerInterface::class,
         ];
 
         if ($this->willVerifyEmail) {
@@ -307,7 +319,15 @@ final class MakeRegistrationForm extends AbstractMaker
 
         if ($this->autoLoginAuthenticator) {
             $useStatements[] = $this->autoLoginAuthenticator;
-            $useStatements[] = GuardAuthenticatorHandler::class;
+            if ($this->useNewAuthenticatorSystem) {
+                $useStatements[] = UserAuthenticatorInterface::class;
+            } else {
+                $useStatements[] = GuardAuthenticatorHandler::class;
+            }
+        }
+
+        if ($isTranslatorAvailable = class_exists(Translator::class)) {
+            $useStatements[] = TranslatorInterface::class;
         }
 
         $generator->generateController(
@@ -328,11 +348,13 @@ final class MakeRegistrationForm extends AbstractMaker
                     'email_getter' => $this->emailGetter,
                     'authenticator_class_name' => $this->autoLoginAuthenticator ? Str::getShortClassName($this->autoLoginAuthenticator) : null,
                     'authenticator_full_class_name' => $this->autoLoginAuthenticator,
+                    'use_new_authenticator_system' => $this->useNewAuthenticatorSystem,
                     'firewall_name' => $this->firewallName,
                     'redirect_route_name' => $this->redirectRouteName,
-                    'password_class_details' => ($passwordClassDetails = $generator->createClassNameDetails($passwordHasher, '\\')),
-                    'password_variable_name' => sprintf('$%s', lcfirst($passwordClassDetails->getShortName())), // @legacy see passwordHasher conditional above
+                    'password_hasher_class_details' => ($passwordClassDetails = $generator->createClassNameDetails($passwordHasher, '\\')),
+                    'password_hasher_variable_name' => str_replace('Interface', '', sprintf('$%s', lcfirst($passwordClassDetails->getShortName()))), // @legacy see passwordHasher conditional above
                     'use_password_hasher' => UserPasswordHasherInterface::class === $passwordHasher, // @legacy see passwordHasher conditional above
+                    'translator_available' => $isTranslatorAvailable,
                 ],
                 $userRepoVars
             )
@@ -356,24 +378,40 @@ final class MakeRegistrationForm extends AbstractMaker
             );
             $userManipulator->setIo($io);
 
-            $userManipulator->addAnnotationToClass(
-                UniqueEntity::class,
-                [
-                    'fields' => [$usernameField],
-                    'message' => sprintf('There is already an account with this %s', $usernameField),
-                ]
-            );
+            if ($this->doctrineHelper->isDoctrineSupportingAttributes()) {
+                $userManipulator->addAttributeToClass(
+                    UniqueEntity::class,
+                    ['fields' => [$usernameField], 'message' => sprintf('There is already an account with this %s', $usernameField)]
+                );
+            } else {
+                $userManipulator->addAnnotationToClass(
+                    UniqueEntity::class,
+                    [
+                        'fields' => [$usernameField],
+                        'message' => sprintf('There is already an account with this %s', $usernameField),
+                    ]
+                );
+            }
             $this->fileManager->dumpFile($classDetails->getPath(), $userManipulator->getSourceCode());
         }
 
         if ($this->willVerifyEmail) {
             $classDetails = new ClassDetails($this->userClass);
             $userManipulator = new ClassSourceManipulator(
-                file_get_contents($classDetails->getPath())
+                file_get_contents($classDetails->getPath()),
+                false,
+                $this->doctrineHelper->isClassAnnotated($this->userClass),
+                true,
+                $this->doctrineHelper->doesClassUsesAttributes($this->userClass)
             );
             $userManipulator->setIo($io);
 
-            $userManipulator->addProperty('isVerified', ['@ORM\Column(type="boolean")'], false);
+            $userManipulator->addProperty(
+                'isVerified',
+                ['@ORM\Column(type="boolean")'],
+                false,
+                [$userManipulator->buildAttributeNode(Column::class, ['type' => 'boolean'], 'ORM')]
+            );
             $userManipulator->addAccessorMethod('isVerified', 'isVerified', 'bool', false);
             $userManipulator->addSetter('isVerified', 'bool', false);
 

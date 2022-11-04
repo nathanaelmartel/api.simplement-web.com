@@ -9,8 +9,6 @@ use Doctrine\ORM\Query\Lexer;
 use Doctrine\ORM\Query\Parser;
 use Doctrine\ORM\Query\SqlWalker;
 
-use function call_user_func_array;
-
 /**
  * "CONCAT" "(" StringPrimary "," StringPrimary {"," StringPrimary }* ")"
  *
@@ -27,10 +25,7 @@ class ConcatFunction extends FunctionNode
     /** @psalm-var list<Node> */
     public $concatExpressions = [];
 
-    /**
-     * @override
-     * @inheritdoc
-     */
+    /** @inheritdoc */
     public function getSql(SqlWalker $sqlWalker)
     {
         $platform = $sqlWalker->getConnection()->getDatabasePlatform();
@@ -44,10 +39,7 @@ class ConcatFunction extends FunctionNode
         return $platform->getConcatExpression(...$args);
     }
 
-    /**
-     * @override
-     * @inheritdoc
-     */
+    /** @inheritdoc */
     public function parse(Parser $parser)
     {
         $parser->match(Lexer::T_IDENTIFIER);

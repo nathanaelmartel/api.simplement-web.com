@@ -23,6 +23,7 @@ use Doctrine\ORM\Query\ParameterTypeInferer;
 use Doctrine\ORM\Query\Parser;
 use Doctrine\ORM\Query\ParserResult;
 use Doctrine\ORM\Query\QueryException;
+use Doctrine\ORM\Query\ResultSetMapping;
 use Doctrine\ORM\Utility\HierarchyDiscriminatorResolver;
 use Psr\Cache\CacheItemPoolInterface;
 
@@ -32,6 +33,7 @@ use function assert;
 use function count;
 use function get_debug_type;
 use function in_array;
+use function is_int;
 use function ksort;
 use function md5;
 use function method_exists;
@@ -118,6 +120,7 @@ final class Query extends AbstractQuery
      * The current state of this query.
      *
      * @var int
+     * @psalm-var self::STATE_*
      */
     private $_state = self::STATE_DIRTY;
 
@@ -145,9 +148,9 @@ final class Query extends AbstractQuery
     /**
      * The first result to return (the "offset").
      *
-     * @var int|null
+     * @var int
      */
-    private $firstResult = null;
+    private $firstResult = 0;
 
     /**
      * The maximum number of results to return (the "limit").
@@ -173,7 +176,7 @@ final class Query extends AbstractQuery
     /**
      * The query cache lifetime.
      *
-     * @var int
+     * @var int|null
      */
     private $queryCacheTTL;
 
@@ -187,9 +190,7 @@ final class Query extends AbstractQuery
     /**
      * Gets the SQL query/queries that correspond to this DQL query.
      *
-     * @return mixed The built sql query or an array of all sql queries.
-     *
-     * @override
+     * @return list<string>|string The built sql query or an array of all sql queries.
      */
     public function getSQL()
     {
@@ -210,6 +211,8 @@ final class Query extends AbstractQuery
 
     /**
      * {@inheritdoc}
+     *
+     * @return ResultSetMapping
      */
     protected function getResultSetMapping()
     {
@@ -442,8 +445,6 @@ final class Query extends AbstractQuery
         $value         = $originalValue;
         $rsm           = $this->getResultSetMapping();
 
-        assert($rsm !== null);
-
         if ($value instanceof ClassMetadata && isset($rsm->metadataParameterMapping[$key])) {
             $value = $value->getMetadataValue($rsm->metadataParameterMapping[$key]);
         }
@@ -536,7 +537,7 @@ final class Query extends AbstractQuery
     /**
      * Defines how long the query cache will be active before expire.
      *
-     * @param int $timeToLive How long the cache entry is valid.
+     * @param int|null $timeToLive How long the cache entry is valid.
      *
      * @return $this
      */
@@ -581,9 +582,6 @@ final class Query extends AbstractQuery
         return $this->expireQueryCache;
     }
 
-    /**
-     * @override
-     */
     public function free(): void
     {
         parent::free();
@@ -595,14 +593,23 @@ final class Query extends AbstractQuery
     /**
      * Sets a DQL query string.
      *
-     * @param string $dqlQuery DQL Query.
+     * @param string|null $dqlQuery DQL Query.
      */
     public function setDQL($dqlQuery): self
     {
-        if ($dqlQuery !== null) {
-            $this->dql    = $dqlQuery;
-            $this->_state = self::STATE_DIRTY;
+        if ($dqlQuery === null) {
+            Deprecation::trigger(
+                'doctrine/orm',
+                'https://github.com/doctrine/orm/pull/9784',
+                'Calling %s with null is deprecated and will result in a TypeError in Doctrine 3.0',
+                __METHOD__
+            );
+
+            return $this;
         }
+
+        $this->dql    = $dqlQuery;
+        $this->_state = self::STATE_DIRTY;
 
         return $this;
     }
@@ -624,6 +631,7 @@ final class Query extends AbstractQuery
      * @see AbstractQuery::STATE_DIRTY
      *
      * @return int The query state.
+     * @psalm-return self::STATE_* The query state.
      */
     public function getState(): int
     {
@@ -649,7 +657,15 @@ final class Query extends AbstractQuery
      */
     public function setFirstResult($firstResult): self
     {
-        if ($firstResult !== null) {
+        if (! is_int($firstResult)) {
+            Deprecation::trigger(
+                'doctrine/orm',
+                'https://github.com/doctrine/orm/pull/9809',
+                'Calling %s with %s is deprecated and will result in a TypeError in Doctrine 3.0. Pass an integer.',
+                __METHOD__,
+                get_debug_type($firstResult)
+            );
+
             $firstResult = (int) $firstResult;
         }
 
@@ -709,6 +725,7 @@ final class Query extends AbstractQuery
      * @param ArrayCollection|mixed[]|null $parameters    The query parameters.
      * @param string|int                   $hydrationMode The hydration mode to use.
      * @psalm-param ArrayCollection<int, Parameter>|array<string, mixed>|null $parameters
+     * @psalm-param string|AbstractQuery::HYDRATE_*|null                      $hydrationMode
      */
     public function iterate($parameters = null, $hydrationMode = self::HYDRATE_OBJECT): IterableResult
     {
@@ -751,6 +768,7 @@ final class Query extends AbstractQuery
      * @see \Doctrine\DBAL\LockMode
      *
      * @param int $lockMode
+     * @psalm-param LockMode::* $lockMode
      *
      * @throws TransactionRequiredException
      */

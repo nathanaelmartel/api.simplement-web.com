@@ -44,6 +44,9 @@ class ObjectHydrator extends AbstractHydrator
     /** @var mixed[] */
     private $initializedCollections = [];
 
+    /** @var array<string, PersistentCollection> */
+    private $uninitializedCollections = [];
+
     /** @var mixed[] */
     private $existingCollections = [];
 
@@ -112,10 +115,11 @@ class ObjectHydrator extends AbstractHydrator
 
         parent::cleanup();
 
-        $this->identifierMap          =
-        $this->initializedCollections =
-        $this->existingCollections    =
-        $this->resultPointers         = [];
+        $this->identifierMap            =
+        $this->initializedCollections   =
+        $this->uninitializedCollections =
+        $this->existingCollections      =
+        $this->resultPointers           = [];
 
         if ($eagerLoad) {
             $this->_uow->triggerEagerLoads();
@@ -126,10 +130,11 @@ class ObjectHydrator extends AbstractHydrator
 
     protected function cleanupAfterRowIteration(): void
     {
-        $this->identifierMap          =
-        $this->initializedCollections =
-        $this->existingCollections    =
-        $this->resultPointers         = [];
+        $this->identifierMap            =
+        $this->initializedCollections   =
+        $this->uninitializedCollections =
+        $this->existingCollections      =
+        $this->resultPointers           = [];
     }
 
     /**
@@ -146,6 +151,12 @@ class ObjectHydrator extends AbstractHydrator
         // Take snapshots from all newly initialized collections
         foreach ($this->initializedCollections as $coll) {
             $coll->takeSnapshot();
+        }
+
+        foreach ($this->uninitializedCollections as $coll) {
+            if (! $coll->isInitialized()) {
+                $coll->setInitialized(true);
+            }
         }
 
         return $result;
@@ -394,8 +405,11 @@ class ObjectHydrator extends AbstractHydrator
                                     $reflFieldValue->hydrateSet($indexValue, $element);
                                     $this->identifierMap[$path][$id[$parentAlias]][$id[$dqlAlias]] = $indexValue;
                                 } else {
-                                    $reflFieldValue->hydrateAdd($element);
-                                    $reflFieldValue->last();
+                                    if (! $reflFieldValue->contains($element)) {
+                                        $reflFieldValue->hydrateAdd($element);
+                                        $reflFieldValue->last();
+                                    }
+
                                     $this->identifierMap[$path][$id[$parentAlias]][$id[$dqlAlias]] = $reflFieldValue->key();
                                 }
 
@@ -408,8 +422,8 @@ class ObjectHydrator extends AbstractHydrator
                         }
                     } elseif (! $reflFieldValue) {
                         $this->initRelatedCollection($parentObject, $parentClass, $relationField, $parentAlias);
-                    } elseif ($reflFieldValue instanceof PersistentCollection && $reflFieldValue->isInitialized() === false) {
-                        $reflFieldValue->setInitialized(true);
+                    } elseif ($reflFieldValue instanceof PersistentCollection && $reflFieldValue->isInitialized() === false && ! isset($this->uninitializedCollections[$oid . $relationField])) {
+                        $this->uninitializedCollections[$oid . $relationField] = $reflFieldValue;
                     }
                 } else {
                     // PATH B: Single-valued association

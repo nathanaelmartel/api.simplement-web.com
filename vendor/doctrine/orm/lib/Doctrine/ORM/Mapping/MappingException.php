@@ -4,25 +4,28 @@ declare(strict_types=1);
 
 namespace Doctrine\ORM\Mapping;
 
+use BackedEnum;
 use Doctrine\ORM\Exception\ORMException;
-use LogicException;
+use LibXMLError;
 use ReflectionException;
+use ValueError;
 
 use function array_keys;
 use function array_map;
 use function array_values;
+use function get_debug_type;
 use function get_parent_class;
 use function implode;
 use function sprintf;
+
+use const PHP_EOL;
 
 /**
  * A MappingException indicates that something is wrong with the mapping setup.
  */
 class MappingException extends ORMException
 {
-    /**
-     * @return MappingException
-     */
+    /** @return MappingException */
     public static function pathRequired()
     {
         return new self('Specifying the paths to your entities is required ' .
@@ -53,7 +56,7 @@ class MappingException extends ORMException
 
     /**
      * @param string $entityName
-     * @param string $type
+     * @param int    $type
      *
      * @return MappingException
      */
@@ -62,9 +65,7 @@ class MappingException extends ORMException
         return new self(sprintf("The inheritance type '%s' specified for '%s' does not exist.", $type, $entityName));
     }
 
-    /**
-     * @return MappingException
-     */
+    /** @return MappingException */
     public static function generatorNotAllowedWithCompositeId()
     {
         return new self("Id generators can't be used with a composite id.");
@@ -823,6 +824,11 @@ class MappingException extends ORMException
         return new self("Entity '" . $className . "' has a mapping with invalid fetch mode '" . $annotation . "'");
     }
 
+    public static function invalidGeneratedMode(string $annotation): MappingException
+    {
+        return new self("Invalid generated mode '" . $annotation . "'");
+    }
+
     /**
      * @param string $className
      *
@@ -914,9 +920,7 @@ class MappingException extends ORMException
         );
     }
 
-    /**
-     * @return self
-     */
+    /** @return self */
     public static function invalidIndexConfiguration($className, $indexName)
     {
         return new self(
@@ -928,9 +932,7 @@ class MappingException extends ORMException
         );
     }
 
-    /**
-     * @return self
-     */
+    /** @return self */
     public static function invalidUniqueConstraintConfiguration($className, $indexName)
     {
         return new self(
@@ -940,5 +942,70 @@ class MappingException extends ORMException
                 $className
             )
         );
+    }
+
+    /** @param mixed $givenValue */
+    public static function invalidOverrideType(string $expectdType, $givenValue): self
+    {
+        return new self(sprintf(
+            'Expected %s, but %s was given.',
+            $expectdType,
+            get_debug_type($givenValue)
+        ));
+    }
+
+    public static function enumsRequirePhp81(string $className, string $fieldName): self
+    {
+        return new self(sprintf('Enum types require PHP 8.1 in %s::$%s', $className, $fieldName));
+    }
+
+    public static function nonEnumTypeMapped(string $className, string $fieldName, string $enumType): self
+    {
+        return new self(sprintf(
+            'Attempting to map non-enum type %s as enum in entity %s::$%s',
+            $enumType,
+            $className,
+            $fieldName
+        ));
+    }
+
+    /**
+     * @param class-string             $className
+     * @param class-string<BackedEnum> $enumType
+     */
+    public static function invalidEnumValue(
+        string $className,
+        string $fieldName,
+        string $value,
+        string $enumType,
+        ValueError $previous
+    ): self {
+        return new self(sprintf(
+            <<<'EXCEPTION'
+Context: Trying to hydrate enum property "%s::$%s"
+Problem: Case "%s" is not listed in enum "%s"
+Solution: Either add the case to the enum type or migrate the database column to use another case of the enum
+EXCEPTION
+            ,
+            $className,
+            $fieldName,
+            $value,
+            $enumType
+        ), 0, $previous);
+    }
+
+    /** @param LibXMLError[] $errors */
+    public static function fromLibXmlErrors(array $errors): self
+    {
+        $formatter = static function (LibXMLError $error): string {
+            return sprintf(
+                'libxml error: %s in %s at line %d',
+                $error->message,
+                $error->file,
+                $error->line
+            );
+        };
+
+        return new self(implode(PHP_EOL, array_map($formatter, $errors)));
     }
 }

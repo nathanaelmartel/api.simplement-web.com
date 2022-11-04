@@ -13,7 +13,7 @@ use RuntimeException;
 
 use function count;
 use function str_replace;
-use function strpos;
+use function str_starts_with;
 
 /**
  * Converts Collection expressions to Query expressions.
@@ -37,9 +37,7 @@ class QueryExpressionVisitor extends ExpressionVisitor
     /** @var list<mixed> */
     private $parameters = [];
 
-    /**
-     * @param mixed[] $queryAliases
-     */
+    /** @param mixed[] $queryAliases */
     public function __construct($queryAliases)
     {
         $this->queryAliases = $queryAliases;
@@ -114,7 +112,7 @@ class QueryExpressionVisitor extends ExpressionVisitor
         $field = $this->queryAliases[0] . '.' . $comparison->getField();
 
         foreach ($this->queryAliases as $alias) {
-            if (strpos($comparison->getField() . '.', $alias . '.') === 0) {
+            if (str_starts_with($comparison->getField() . '.', $alias . '.')) {
                 $field = $comparison->getField();
                 break;
             }

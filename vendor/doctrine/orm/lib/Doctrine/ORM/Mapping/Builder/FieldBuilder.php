@@ -31,9 +31,7 @@ class FieldBuilder
     /** @var string|null */
     private $customIdGenerator;
 
-    /**
-     * @param mixed[] $mapping
-     */
+    /** @param mixed[] $mapping */
     public function __construct(ClassMetadataBuilder $builder, array $mapping)
     {
         $this->builder = $builder;
@@ -106,6 +104,34 @@ class FieldBuilder
     public function precision($p)
     {
         $this->mapping['precision'] = $p;
+
+        return $this;
+    }
+
+    /**
+     * Sets insertable.
+     *
+     * @return $this
+     */
+    public function insertable(bool $flag = true): self
+    {
+        if (! $flag) {
+            $this->mapping['notInsertable'] = true;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Sets updatable.
+     *
+     * @return $this
+     */
+    public function updatable(bool $flag = true): self
+    {
+        if (! $flag) {
+            $this->mapping['notUpdatable'] = true;
+        }
 
         return $this;
     }

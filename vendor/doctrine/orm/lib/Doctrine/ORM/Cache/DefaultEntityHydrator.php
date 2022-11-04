@@ -12,6 +12,7 @@ use Doctrine\ORM\UnitOfWork;
 use Doctrine\ORM\Utility\IdentifierFlattener;
 
 use function array_merge;
+use function assert;
 use function is_array;
 use function is_object;
 use function reset;
@@ -37,9 +38,7 @@ class DefaultEntityHydrator implements EntityHydrator
     /** @var array<string,mixed> */
     private static $hints = [Query::HINT_CACHE_ENABLED => true];
 
-    /**
-     * @param EntityManagerInterface $em The entity manager.
-     */
+    /** @param EntityManagerInterface $em The entity manager. */
     public function __construct(EntityManagerInterface $em)
     {
         $this->em                  = $em;
@@ -55,8 +54,17 @@ class DefaultEntityHydrator implements EntityHydrator
         $data = $this->uow->getOriginalEntityData($entity);
         $data = array_merge($data, $metadata->getIdentifierValues($entity)); // why update has no identifier values ?
 
-        if ($metadata->isVersioned) {
-            $data[$metadata->versionField] = $metadata->getFieldValue($entity, $metadata->versionField);
+        if ($metadata->requiresFetchAfterChange) {
+            if ($metadata->isVersioned) {
+                assert($metadata->versionField !== null);
+                $data[$metadata->versionField] = $metadata->getFieldValue($entity, $metadata->versionField);
+            }
+
+            foreach ($metadata->fieldMappings as $name => $fieldMapping) {
+                if (isset($fieldMapping['generated'])) {
+                    $data[$name] = $metadata->getFieldValue($entity, $name);
+                }
+            }
         }
 
         foreach ($metadata->associationMappings as $name => $assoc) {

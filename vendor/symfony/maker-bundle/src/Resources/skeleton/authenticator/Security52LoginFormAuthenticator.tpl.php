@@ -13,7 +13,7 @@ use Symfony\Component\Security\Http\Authenticator\Passport\Badge\CsrfTokenBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Credentials\PasswordCredentials;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
-use Symfony\Component\Security\Http\Authenticator\Passport\PassportInterface;
+<?= $use_legacy_passport_interface ? 'use Symfony\\Component\\Security\\Http\\Authenticator\\Passport\\PassportInterface;'."\n" : '' ?>
 use Symfony\Component\Security\Http\Util\TargetPathTrait;
 
 class <?= $class_name; ?> extends AbstractLoginFormAuthenticator
@@ -29,7 +29,7 @@ class <?= $class_name; ?> extends AbstractLoginFormAuthenticator
         $this->urlGenerator = $urlGenerator;
     }
 
-    public function authenticate(Request $request): PassportInterface
+    public function authenticate(Request $request): <?= ($use_legacy_passport_interface ? 'PassportInterface' : 'Passport') . "\n" ?>
     {
         $<?= $username_field_var ?> = $request->request->get('<?= $username_field ?>', '');
 
@@ -51,7 +51,7 @@ class <?= $class_name; ?> extends AbstractLoginFormAuthenticator
         }
 
         // For example:
-        //return new RedirectResponse($this->urlGenerator->generate('some_route'));
+        // return new RedirectResponse($this->urlGenerator->generate('some_route'));
         throw new \Exception('TODO: provide a valid redirect inside '.__FILE__);
     }
 

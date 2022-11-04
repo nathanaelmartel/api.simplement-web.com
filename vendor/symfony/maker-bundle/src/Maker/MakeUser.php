@@ -36,6 +36,7 @@ use Symfony\Component\PasswordHasher\Hasher\NativePasswordHasher;
 use Symfony\Component\Security\Core\Encoder\Argon2iPasswordEncoder;
 use Symfony\Component\Security\Core\Encoder\NativePasswordEncoder;
 use Symfony\Component\Security\Core\Exception\UserNotFoundException;
+use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\PasswordUpgraderInterface;
 use Symfony\Component\Yaml\Yaml;
 
@@ -163,7 +164,7 @@ final class MakeUser extends AbstractMaker
         // need to write changes early so we can modify the contents below
         $generator->writeChanges();
 
-        $useAttributesForDoctrineMapping = $userClassConfiguration->isEntity() && ($this->doctrineHelper->isDoctrineSupportingAttributes()) && $this->doctrineHelper->doesClassUsesAttributes($userClassNameDetails->getFullName());
+        $useAttributesForDoctrineMapping = $userClassConfiguration->isEntity() && $this->doctrineHelper->isDoctrineSupportingAttributes() && $this->doctrineHelper->doesClassUsesAttributes($userClassNameDetails->getFullName());
 
         // B) Implement UserInterface
         $manipulator = new ClassSourceManipulator(
@@ -189,6 +190,7 @@ final class MakeUser extends AbstractMaker
                 [
                     'uses_user_identifier' => class_exists(UserNotFoundException::class),
                     'user_short_name' => $userClassNameDetails->getShortName(),
+                    'use_legacy_password_upgrader_type' => !interface_exists(PasswordAuthenticatedUserInterface::class),
                 ]
             );
         }

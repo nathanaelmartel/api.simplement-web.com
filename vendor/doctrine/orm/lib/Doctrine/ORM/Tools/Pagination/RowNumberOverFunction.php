@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Doctrine\ORM\Tools\Pagination;
 
-use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\Query\AST\Functions\FunctionNode;
 use Doctrine\ORM\Query\AST\OrderByClause;
 use Doctrine\ORM\Query\Parser;
@@ -23,10 +22,7 @@ class RowNumberOverFunction extends FunctionNode
     /** @var OrderByClause */
     public $orderByClause;
 
-    /**
-     * @override
-     * @inheritdoc
-     */
+    /** @inheritdoc */
     public function getSql(SqlWalker $sqlWalker)
     {
         return 'ROW_NUMBER() OVER(' . trim($sqlWalker->walkOrderByClause(
@@ -37,7 +33,6 @@ class RowNumberOverFunction extends FunctionNode
     /**
      * @throws RowNumberOverFunctionNotEnabled
      *
-     * @override
      * @inheritdoc
      */
     public function parse(Parser $parser)

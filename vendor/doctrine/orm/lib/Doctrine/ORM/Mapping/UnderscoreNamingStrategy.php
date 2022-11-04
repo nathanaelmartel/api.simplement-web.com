@@ -7,7 +7,7 @@ namespace Doctrine\ORM\Mapping;
 use Doctrine\Deprecations\Deprecation;
 
 use function preg_replace;
-use function strpos;
+use function str_contains;
 use function strrpos;
 use function strtolower;
 use function strtoupper;
@@ -53,9 +53,7 @@ class UnderscoreNamingStrategy implements NamingStrategy
         $this->pattern = $numberAware ? self::NUMBER_AWARE_PATTERN : self::DEFAULT_PATTERN;
     }
 
-    /**
-     * @return int CASE_LOWER | CASE_UPPER
-     */
+    /** @return int CASE_LOWER | CASE_UPPER */
     public function getCase()
     {
         return $this->case;
@@ -79,7 +77,7 @@ class UnderscoreNamingStrategy implements NamingStrategy
      */
     public function classToTableName($className)
     {
-        if (strpos($className, '\\') !== false) {
+        if (str_contains($className, '\\')) {
             $className = substr($className, strrpos($className, '\\') + 1);
         }
 
@@ -112,6 +110,9 @@ class UnderscoreNamingStrategy implements NamingStrategy
 
     /**
      * {@inheritdoc}
+     *
+     * @param string       $propertyName
+     * @param class-string $className
      */
     public function joinColumnName($propertyName, $className = null)
     {

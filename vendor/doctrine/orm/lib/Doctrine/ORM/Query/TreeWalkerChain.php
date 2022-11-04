@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Doctrine\ORM\Query;
 
-use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\Deprecations\Deprecation;
+use Doctrine\ORM\AbstractQuery;
+use Generator;
 
 use function array_diff;
 use function array_keys;
@@ -13,31 +15,32 @@ use function array_keys;
  * Represents a chain of tree walkers that modify an AST and finally emit output.
  * Only the last walker in the chain can emit output. Any previous walkers can modify
  * the AST to influence the final output produced by the last walker.
+ *
+ * @psalm-import-type QueryComponent from Parser
  */
 class TreeWalkerChain implements TreeWalker
 {
     /**
      * The tree walkers.
      *
-     * @var TreeWalker[]
-     * @psalm-var TreeWalkerChainIterator
+     * @var string[]
+     * @psalm-var list<class-string<TreeWalker>>
      */
-    private $_walkers;
+    private $walkers = [];
+
+    /** @var AbstractQuery */
+    private $query;
+
+    /** @var ParserResult */
+    private $parserResult;
 
     /**
      * The query components of the original query (the "symbol table") that was produced by the Parser.
      *
      * @var array<string, array<string, mixed>>
-     * @psalm-var array<string, array{
-     *                metadata: ClassMetadata,
-     *                parent: string,
-     *                relation: mixed[],
-     *                map: mixed,
-     *                nestingLevel: int,
-     *                token: array
-     *            }>
+     * @psalm-var array<string, QueryComponent>
      */
-    private $_queryComponents;
+    private $queryComponents;
 
     /**
      * Returns the internal queryComponents array.
@@ -46,7 +49,7 @@ class TreeWalkerChain implements TreeWalker
      */
     public function getQueryComponents()
     {
-        return $this->_queryComponents;
+        return $this->queryComponents;
     }
 
     /**
@@ -62,7 +65,7 @@ class TreeWalkerChain implements TreeWalker
             throw QueryException::invalidQueryComponent($dqlAlias);
         }
 
-        $this->_queryComponents[$dqlAlias] = $queryComponent;
+        $this->queryComponents[$dqlAlias] = $queryComponent;
     }
 
     /**
@@ -70,44 +73,48 @@ class TreeWalkerChain implements TreeWalker
      */
     public function __construct($query, $parserResult, array $queryComponents)
     {
-        $this->_queryComponents = $queryComponents;
-        $this->_walkers         = new TreeWalkerChainIterator($this, $query, $parserResult);
+        $this->query           = $query;
+        $this->parserResult    = $parserResult;
+        $this->queryComponents = $queryComponents;
     }
 
     /**
      * Adds a tree walker to the chain.
      *
      * @param string $walkerClass The class of the walker to instantiate.
+     * @psalm-param class-string<TreeWalker> $walkerClass
      *
      * @return void
      */
     public function addTreeWalker($walkerClass)
     {
-        $this->_walkers[] = $walkerClass;
+        $this->walkers[] = $walkerClass;
     }
 
-    /**
-     * {@inheritdoc}
-     *
-     * @return void
-     */
     public function walkSelectStatement(AST\SelectStatement $AST)
     {
-        foreach ($this->_walkers as $walker) {
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkSelectStatement($AST);
 
-            $this->_queryComponents = $walker->getQueryComponents();
+            $this->queryComponents = $walker->getQueryComponents();
         }
     }
 
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkSelectClause($selectClause)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkSelectClause($selectClause);
         }
     }
@@ -115,11 +122,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkFromClause($fromClause)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkFromClause($fromClause);
         }
     }
@@ -127,11 +141,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkFunction($function)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkFunction($function);
         }
     }
@@ -139,11 +160,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkOrderByClause($orderByClause)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkOrderByClause($orderByClause);
         }
     }
@@ -151,11 +179,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkOrderByItem($orderByItem)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkOrderByItem($orderByItem);
         }
     }
@@ -163,11 +198,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkHavingClause($havingClause)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkHavingClause($havingClause);
         }
     }
@@ -175,11 +217,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkJoin($join)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkJoin($join);
         }
     }
@@ -187,11 +236,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkSelectExpression($selectExpression)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkSelectExpression($selectExpression);
         }
     }
@@ -199,11 +255,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkQuantifiedExpression($qExpr)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkQuantifiedExpression($qExpr);
         }
     }
@@ -211,11 +274,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkSubselect($subselect)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkSubselect($subselect);
         }
     }
@@ -223,11 +293,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkSubselectFromClause($subselectFromClause)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkSubselectFromClause($subselectFromClause);
         }
     }
@@ -235,11 +312,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkSimpleSelectClause($simpleSelectClause)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkSimpleSelectClause($simpleSelectClause);
         }
     }
@@ -247,11 +331,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkSimpleSelectExpression($simpleSelectExpression)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkSimpleSelectExpression($simpleSelectExpression);
         }
     }
@@ -259,11 +350,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkAggregateExpression($aggExpression)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkAggregateExpression($aggExpression);
         }
     }
@@ -271,11 +369,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkGroupByClause($groupByClause)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkGroupByClause($groupByClause);
         }
     }
@@ -283,35 +388,32 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkGroupByItem($groupByItem)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkGroupByItem($groupByItem);
         }
     }
 
-    /**
-     * {@inheritdoc}
-     *
-     * @return void
-     */
     public function walkUpdateStatement(AST\UpdateStatement $AST)
     {
-        foreach ($this->_walkers as $walker) {
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkUpdateStatement($AST);
         }
     }
 
-    /**
-     * {@inheritdoc}
-     *
-     * @return void
-     */
     public function walkDeleteStatement(AST\DeleteStatement $AST)
     {
-        foreach ($this->_walkers as $walker) {
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkDeleteStatement($AST);
         }
     }
@@ -319,11 +421,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkDeleteClause(AST\DeleteClause $deleteClause)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkDeleteClause($deleteClause);
         }
     }
@@ -331,11 +440,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkUpdateClause($updateClause)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkUpdateClause($updateClause);
         }
     }
@@ -343,11 +459,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkUpdateItem($updateItem)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkUpdateItem($updateItem);
         }
     }
@@ -355,11 +478,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkWhereClause($whereClause)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkWhereClause($whereClause);
         }
     }
@@ -367,11 +497,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkConditionalExpression($condExpr)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkConditionalExpression($condExpr);
         }
     }
@@ -379,11 +516,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkConditionalTerm($condTerm)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkConditionalTerm($condTerm);
         }
     }
@@ -391,11 +535,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkConditionalFactor($factor)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkConditionalFactor($factor);
         }
     }
@@ -403,11 +554,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkConditionalPrimary($condPrimary)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkConditionalPrimary($condPrimary);
         }
     }
@@ -415,11 +573,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkExistsExpression($existsExpr)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkExistsExpression($existsExpr);
         }
     }
@@ -427,11 +592,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkCollectionMemberExpression($collMemberExpr)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkCollectionMemberExpression($collMemberExpr);
         }
     }
@@ -439,11 +611,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkEmptyCollectionComparisonExpression($emptyCollCompExpr)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkEmptyCollectionComparisonExpression($emptyCollCompExpr);
         }
     }
@@ -451,11 +630,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkNullComparisonExpression($nullCompExpr)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkNullComparisonExpression($nullCompExpr);
         }
     }
@@ -463,11 +649,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkInExpression($inExpr)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkInExpression($inExpr);
         }
     }
@@ -475,11 +668,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkInstanceOfExpression($instanceOfExpr)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkInstanceOfExpression($instanceOfExpr);
         }
     }
@@ -487,11 +687,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkLiteral($literal)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkLiteral($literal);
         }
     }
@@ -499,11 +706,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkBetweenExpression($betweenExpr)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkBetweenExpression($betweenExpr);
         }
     }
@@ -511,11 +725,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkLikeExpression($likeExpr)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkLikeExpression($likeExpr);
         }
     }
@@ -523,11 +744,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkStateFieldPathExpression($stateFieldPathExpression)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkStateFieldPathExpression($stateFieldPathExpression);
         }
     }
@@ -535,11 +763,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkComparisonExpression($compExpr)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkComparisonExpression($compExpr);
         }
     }
@@ -547,11 +782,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkInputParameter($inputParam)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkInputParameter($inputParam);
         }
     }
@@ -559,11 +801,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkArithmeticExpression($arithmeticExpr)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkArithmeticExpression($arithmeticExpr);
         }
     }
@@ -571,11 +820,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkArithmeticTerm($term)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkArithmeticTerm($term);
         }
     }
@@ -583,11 +839,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkStringPrimary($stringPrimary)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkStringPrimary($stringPrimary);
         }
     }
@@ -595,11 +858,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkArithmeticFactor($factor)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkArithmeticFactor($factor);
         }
     }
@@ -607,11 +877,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkSimpleArithmeticExpression($simpleArithmeticExpr)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkSimpleArithmeticExpression($simpleArithmeticExpr);
         }
     }
@@ -619,11 +896,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkPathExpression($pathExpr)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkPathExpression($pathExpr);
         }
     }
@@ -631,11 +915,18 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function walkResultVariable($resultVariable)
     {
-        foreach ($this->_walkers as $walker) {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        foreach ($this->getWalkers() as $walker) {
             $walker->walkResultVariable($resultVariable);
         }
     }
@@ -643,9 +934,25 @@ class TreeWalkerChain implements TreeWalker
     /**
      * {@inheritdoc}
      *
-     * @return void
+     * @deprecated This method will be removed in 3.0.
      */
     public function getExecutor($AST)
     {
+        Deprecation::trigger(
+            'doctrine/orm',
+            'https://github.com/doctrine/orm/pull/9551',
+            'Method "%s" is deprecated and will be removed in ORM 3.0 without replacement.',
+            __METHOD__
+        );
+
+        return null;
+    }
+
+    /** @psalm-return Generator<int, TreeWalker> */
+    private function getWalkers(): Generator
+    {
+        foreach ($this->walkers as $walkerClass) {
+            yield new $walkerClass($this->query, $this->parserResult, $this->queryComponents);
+        }
     }
 }

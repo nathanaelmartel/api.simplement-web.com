@@ -13,6 +13,7 @@ namespace Symfony\Component\Serializer\Normalizer;
 
 use Symfony\Component\PropertyAccess\Exception\InvalidArgumentException;
 use Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException;
+use Symfony\Component\PropertyAccess\Exception\UninitializedPropertyException;
 use Symfony\Component\PropertyInfo\PropertyTypeExtractorInterface;
 use Symfony\Component\PropertyInfo\Type;
 use Symfony\Component\Serializer\Encoder\CsvEncoder;
@@ -176,7 +177,18 @@ abstract class AbstractObjectNormalizer extends AbstractNormalizer
             }
 
             $attributeContext = $this->getAttributeNormalizationContext($object, $attribute, $context);
-            $attributeValue = $this->getAttributeValue($object, $attribute, $format, $attributeContext);
+
+            try {
+                $attributeValue = $this->getAttributeValue($object, $attribute, $format, $attributeContext);
+            } catch (UninitializedPropertyException $e) {
+                continue;
+            } catch (\Error $e) {
+                if ($this->isUninitializedValueError($e)) {
+                    continue;
+                }
+                throw $e;
+            }
+
             if ($maxDepthReached) {
                 $attributeValue = $maxDepthHandler($attributeValue, $object, $attribute, $format, $attributeContext);
             }
@@ -422,11 +434,17 @@ abstract class AbstractObjectNormalizer extends AbstractNormalizer
             // if a value is meant to be a string, float, int or a boolean value from the serialized representation.
             // That's why we have to transform the values, if one of these non-string basic datatypes is expected.
             if (\is_string($data) && (XmlEncoder::FORMAT === $format || CsvEncoder::FORMAT === $format)) {
-                if ('' === $data && $type->isNullable() && \in_array($type->getBuiltinType(), [Type::BUILTIN_TYPE_BOOL, Type::BUILTIN_TYPE_INT, Type::BUILTIN_TYPE_FLOAT], true)) {
-                    return null;
+                if ('' === $data) {
+                    if (Type::BUILTIN_TYPE_ARRAY === $builtinType = $type->getBuiltinType()) {
+                        return [];
+                    }
+
+                    if ($type->isNullable() && \in_array($builtinType, [Type::BUILTIN_TYPE_BOOL, Type::BUILTIN_TYPE_INT, Type::BUILTIN_TYPE_FLOAT], true)) {
+                        return null;
+                    }
                 }
 
-                switch ($type->getBuiltinType()) {
+                switch ($builtinType ?? $type->getBuiltinType()) {
                     case Type::BUILTIN_TYPE_BOOL:
                         // according to https://www.w3.org/TR/xmlschema-2/#boolean, valid representations are "false", "true", "0" and "1"
                         if ('false' === $data || '0' === $data) {
@@ -517,6 +535,10 @@ abstract class AbstractObjectNormalizer extends AbstractNormalizer
             // a float is expected.
             if (Type::BUILTIN_TYPE_FLOAT === $builtinType && \is_int($data) && str_contains($format, JsonEncoder::FORMAT)) {
                 return (float) $data;
+            }
+
+            if (Type::BUILTIN_TYPE_FALSE === $builtinType && false === $data) {
+                return $data;
             }
 
             if (('is_'.$builtinType)($data)) {
@@ -674,5 +696,16 @@ abstract class AbstractObjectNormalizer extends AbstractNormalizer
             // The context cannot be serialized, skip the cache
             return false;
         }
+    }
+
+    /**
+     * This error may occur when specific object normalizer implementation gets attribute value
+     * by accessing a public uninitialized property or by calling a method accessing such property.
+     */
+    private function isUninitializedValueError(\Error $e): bool
+    {
+        return \PHP_VERSION_ID >= 70400
+            && str_starts_with($e->getMessage(), 'Typed property')
+            && str_ends_with($e->getMessage(), 'must not be accessed before initialization');
     }
 }

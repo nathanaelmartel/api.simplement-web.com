@@ -16,27 +16,23 @@ use Doctrine\ORM\Persisters\Collection\CollectionPersister;
  */
 interface CachedCollectionPersister extends CachedPersister, CollectionPersister
 {
-    /**
-     * @return ClassMetadata
-     */
+    /** @return ClassMetadata */
     public function getSourceEntityMetadata();
 
-    /**
-     * @return ClassMetadata
-     */
+    /** @return ClassMetadata */
     public function getTargetEntityMetadata();
 
     /**
      * Loads a collection from cache
      *
-     * @return PersistentCollection|null
+     * @return mixed[]|null
      */
     public function loadCollectionCache(PersistentCollection $collection, CollectionCacheKey $key);
 
     /**
      * Stores a collection into cache
      *
-     * @param array|mixed[]|Collection $elements
+     * @param mixed[]|Collection $elements
      *
      * @return void
      */

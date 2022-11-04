@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Doctrine\ORM\Id;
 
-use Doctrine\ORM\EntityManager;
+use Doctrine\Deprecations\Deprecation;
+use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * Id generator that obtains IDs from special "identity" columns. These are columns
@@ -27,13 +28,22 @@ class IdentityGenerator extends AbstractIdGenerator
      */
     public function __construct($sequenceName = null)
     {
+        if ($sequenceName !== null) {
+            Deprecation::trigger(
+                'doctrine/orm',
+                'https://github.com/doctrine/orm/issues/8850',
+                'Passing a sequence name to the IdentityGenerator is deprecated in favor of using %s. $sequenceName will be removed in ORM 3.0',
+                SequenceGenerator::class
+            );
+        }
+
         $this->sequenceName = $sequenceName;
     }
 
     /**
      * {@inheritDoc}
      */
-    public function generate(EntityManager $em, $entity)
+    public function generateId(EntityManagerInterface $em, $entity)
     {
         return (int) $em->getConnection()->lastInsertId($this->sequenceName);
     }

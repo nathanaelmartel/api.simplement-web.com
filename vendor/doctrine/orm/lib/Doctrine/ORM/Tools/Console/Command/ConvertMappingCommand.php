@@ -31,6 +31,8 @@ use function strtolower;
 /**
  * Command to convert your mapping information between the various formats.
  *
+ * @deprecated 2.7 This class is being removed from the ORM and won't have any replacement
+ *
  * @link    www.doctrine-project.org
  */
 class ConvertMappingCommand extends AbstractEntityManagerCommand
@@ -52,7 +54,7 @@ class ConvertMappingCommand extends AbstractEntityManagerCommand
              ->addOption('extend', null, InputOption::VALUE_OPTIONAL, 'Defines a base class to be extended by generated entity classes.')
              ->addOption('num-spaces', null, InputOption::VALUE_OPTIONAL, 'Defines the number of indentation spaces', 4)
              ->addOption('namespace', null, InputOption::VALUE_OPTIONAL, 'Defines a namespace for the generated entity classes, if converted from database.')
-             ->setHelp(<<<EOT
+             ->setHelp(<<<'EOT'
 Convert mapping information between supported formats.
 
 This is an execute <info>one-time</info> command. It should not be necessary for
@@ -73,7 +75,7 @@ in Doctrine 2 and can be used as runtime mapping for the ORM.
 by the ORM, you can use a DBAL functionality to filter the tables and sequences down
 on a global level:
 
-    \$config->setFilterSchemaAssetsExpression(\$regexp);
+    $config->setFilterSchemaAssetsExpression($regexp);
 EOT
              );
     }
@@ -86,6 +88,7 @@ EOT
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $ui = new SymfonyStyle($input, $output);
+        $ui->warning('Command ' . $this->getName() . ' is deprecated and will be removed in Doctrine ORM 3.0.');
 
         $em = $this->getEntityManager($input);
 
@@ -151,7 +154,7 @@ EOT
         if (empty($metadata)) {
             $ui->success('No Metadata Classes to process.');
 
-            return;
+            return 0;
         }
 
         foreach ($metadata as $class) {

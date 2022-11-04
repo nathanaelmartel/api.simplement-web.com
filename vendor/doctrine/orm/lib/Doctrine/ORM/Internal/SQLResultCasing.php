@@ -7,16 +7,13 @@ namespace Doctrine\ORM\Internal;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Platforms\DB2Platform;
 use Doctrine\DBAL\Platforms\OraclePlatform;
-use Doctrine\DBAL\Platforms\PostgreSQL94Platform;
 use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 
 use function method_exists;
 use function strtolower;
 use function strtoupper;
 
-/**
- * @internal
- */
+/** @internal */
 trait SQLResultCasing
 {
     private function getSQLResultCasing(AbstractPlatform $platform, string $column): string
@@ -25,7 +22,7 @@ trait SQLResultCasing
             return strtoupper($column);
         }
 
-        if ($platform instanceof PostgreSQL94Platform || $platform instanceof PostgreSQLPlatform) {
+        if ($platform instanceof PostgreSQLPlatform) {
             return strtolower($column);
         }
 

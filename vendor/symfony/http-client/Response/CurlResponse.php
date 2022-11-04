@@ -170,6 +170,7 @@ final class CurlResponse implements ResponseInterface, StreamableInterface
         };
 
         // Schedule the request in a non-blocking way
+        $multi->lastTimeout = null;
         $multi->openHandles[$id] = [$ch, $options];
         curl_multi_add_handle($multi->handle, $ch);
 
@@ -247,13 +248,15 @@ final class CurlResponse implements ResponseInterface, StreamableInterface
 
     public function __destruct()
     {
-        curl_setopt($this->handle, \CURLOPT_VERBOSE, false);
+        try {
+            if (null === $this->timeout) {
+                return; // Unused pushed response
+            }
 
-        if (null === $this->timeout) {
-            return; // Unused pushed response
+            $this->doDestruct();
+        } finally {
+            curl_setopt($this->handle, \CURLOPT_VERBOSE, false);
         }
-
-        $this->doDestruct();
     }
 
     /**
@@ -295,9 +298,17 @@ final class CurlResponse implements ResponseInterface, StreamableInterface
             self::$performing = true;
             ++$multi->execCounter;
             $active = 0;
-            while (\CURLM_CALL_MULTI_PERFORM === curl_multi_exec($multi->handle, $active));
+            while (\CURLM_CALL_MULTI_PERFORM === ($err = curl_multi_exec($multi->handle, $active))) {
+            }
+
+            if (\CURLM_OK !== $err) {
+                throw new TransportException(curl_multi_strerror($err));
+            }
 
             while ($info = curl_multi_info_read($multi->handle)) {
+                if (\CURLMSG_DONE !== $info['msg']) {
+                    continue;
+                }
                 $result = $info['result'];
                 $id = (int) $ch = $info['handle'];
                 $waitFor = @curl_getinfo($ch, \CURLINFO_PRIVATE) ?: '_0';
@@ -311,6 +322,10 @@ final class CurlResponse implements ResponseInterface, StreamableInterface
                     if (0 === curl_multi_add_handle($multi->handle, $ch)) {
                         continue;
                     }
+                }
+
+                if (\CURLE_RECV_ERROR === $result && 'H' === $waitFor[0] && 400 <= ($responses[(int) $ch]->info['http_code'] ?? 0)) {
+                    $multi->handlesActivity[$id][] = new FirstChunk();
                 }
 
                 $multi->handlesActivity[$id][] = null;
@@ -371,15 +386,8 @@ final class CurlResponse implements ResponseInterface, StreamableInterface
         }
 
         if ('' !== $data) {
-            try {
-                // Regular header line: add it to the list
-                self::addResponseHeaders([$data], $info, $headers);
-            } catch (TransportException $e) {
-                $multi->handlesActivity[$id][] = null;
-                $multi->handlesActivity[$id][] = $e;
-
-                return \strlen($data);
-            }
+            // Regular header line: add it to the list
+            self::addResponseHeaders([$data], $info, $headers);
 
             if (!str_starts_with($data, 'HTTP/')) {
                 if (0 === stripos($data, 'Location:')) {

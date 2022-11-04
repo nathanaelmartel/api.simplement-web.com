@@ -1,20 +1,36 @@
 <?php
 
+/*
+ * This file is part of the Doctrine Behavioral Extensions package.
+ * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Gedmo\Sortable\Mapping\Event\Adapter;
 
 use Doctrine\ORM\QueryBuilder;
+use Doctrine\Persistence\Mapping\ClassMetadata;
 use Gedmo\Mapping\Event\Adapter\ORM as BaseAdapterORM;
 use Gedmo\Sortable\Mapping\Event\SortableAdapter;
+use Gedmo\Sortable\SortableListener;
 
 /**
  * Doctrine event adapter for ORM adapted
  * for sortable behavior
  *
  * @author Lukas Botsch <lukas.botsch@gmail.com>
- * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
+ *
+ * @phpstan-import-type SortableRelocation from SortableListener
  */
 final class ORM extends BaseAdapterORM implements SortableAdapter
 {
+    /**
+     * @param ClassMetadata $meta
+     * @param array         $groups
+     *
+     * @return int|null
+     */
     public function getMaxPosition(array $config, $meta, $groups)
     {
         $em = $this->getObjectManager();
@@ -22,29 +38,23 @@ final class ORM extends BaseAdapterORM implements SortableAdapter
         $qb = $em->createQueryBuilder();
         $qb->select('MAX(n.'.$config['position'].')')
            ->from($config['useObjectClass'], 'n');
-        $this->addGroupWhere($qb, $groups);
+        $this->addGroupWhere($qb, $meta, $groups);
         $query = $qb->getQuery();
         $query->useQueryCache(false);
-        $query->useResultCache(false);
+        $query->disableResultCache();
         $res = $query->getResult();
 
         return $res[0][1];
     }
 
-    private function addGroupWhere(QueryBuilder $qb, $groups)
-    {
-        $i = 1;
-        foreach ($groups as $group => $value) {
-            if (is_null($value)) {
-                $qb->andWhere($qb->expr()->isNull('n.'.$group));
-            } else {
-                $qb->andWhere('n.'.$group.' = :group__'.$i);
-                $qb->setParameter('group__'.$i, $value);
-            }
-            ++$i;
-        }
-    }
-
+    /**
+     * @param array $relocation
+     * @param array $delta
+     * @param array $config
+     * @phpstan-param SortableRelocation $relocation
+     *
+     * @return void
+     */
     public function updatePositions($relocation, $delta, $config)
     {
         $sign = $delta['delta'] < 0 ? '-' : '+';
@@ -59,7 +69,7 @@ final class ORM extends BaseAdapterORM implements SortableAdapter
         $i = -1;
         $params = [];
         foreach ($relocation['groups'] as $group => $value) {
-            if (is_null($value)) {
+            if (null === $value) {
                 $dql .= " AND n.{$group} IS NULL";
             } else {
                 $dql .= " AND n.{$group} = :val___".(++$i);
@@ -70,19 +80,19 @@ final class ORM extends BaseAdapterORM implements SortableAdapter
         // add excludes
         if (!empty($delta['exclude'])) {
             $meta = $this->getObjectManager()->getClassMetadata($relocation['name']);
-            if (1 == count($meta->identifier)) {
+            if (1 == count($meta->getIdentifier())) {
                 // if we only have one identifier, we can use IN syntax, for better performance
                 $excludedIds = [];
                 foreach ($delta['exclude'] as $entity) {
-                    if ($id = $meta->getFieldValue($entity, $meta->identifier[0])) {
+                    if ($id = $meta->getFieldValue($entity, $meta->getIdentifier()[0])) {
                         $excludedIds[] = $id;
                     }
                 }
                 if (!empty($excludedIds)) {
                     $params['excluded'] = $excludedIds;
-                    $dql .= " AND n.{$meta->identifier[0]} NOT IN (:excluded)";
+                    $dql .= " AND n.{$meta->getIdentifier()[0]} NOT IN (:excluded)";
                 }
-            } elseif (count($meta->identifier) > 1) {
+            } elseif (count($meta->getIdentifier()) > 1) {
                 foreach ($delta['exclude'] as $entity) {
                     $j = 0;
                     $dql .= ' AND NOT (';
@@ -100,5 +110,19 @@ final class ORM extends BaseAdapterORM implements SortableAdapter
         $q = $em->createQuery($dql);
         $q->setParameters($params);
         $q->getSingleScalarResult();
+    }
+
+    private function addGroupWhere(QueryBuilder $qb, ClassMetadata $metadata, iterable $groups): void
+    {
+        $i = 1;
+        foreach ($groups as $group => $value) {
+            if (null === $value) {
+                $qb->andWhere($qb->expr()->isNull('n.'.$group));
+            } else {
+                $qb->andWhere('n.'.$group.' = :group__'.$i);
+                $qb->setParameter('group__'.$i, $value, $metadata->getTypeOfField($group));
+            }
+            ++$i;
+        }
     }
 }

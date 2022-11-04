@@ -1,6 +1,15 @@
 <?php
 
+/*
+ * This file is part of the Doctrine Behavioral Extensions package.
+ * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Gedmo;
+
+use function class_exists;
 
 use Doctrine\Common\Annotations\AnnotationReader;
 use Doctrine\Common\Annotations\AnnotationRegistry;
@@ -12,27 +21,25 @@ use Doctrine\ODM\MongoDB\Mapping\Driver as DriverMongodbODM;
 use Doctrine\ORM\Mapping\Driver as DriverORM;
 use Doctrine\Persistence\Mapping\Driver\MappingDriverChain;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
-use function class_exists;
 
 /**
- * Version class allows to checking the dependencies required
- * and the current version of doctrine extensions
+ * Version class allows checking the required dependencies
+ * and the current version of the Doctrine Extensions library.
  *
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
- * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 final class DoctrineExtensions
 {
     /**
      * Current version of extensions
      */
-    const VERSION = '3.1.0';
+    public const VERSION = '3.9.0';
 
     /**
-     * Hooks all extensions metadata mapping drivers
-     * into given $driverChain of drivers for ORM
+     * Hooks all extension metadata mapping drivers into
+     * the given driver chain of drivers for the ORM.
      */
-    public static function registerMappingIntoDriverChainORM(MappingDriverChain $driverChain, Reader $reader = null)
+    public static function registerMappingIntoDriverChainORM(MappingDriverChain $driverChain, Reader $reader = null): void
     {
         self::registerAnnotations();
         if (!$reader) {
@@ -47,10 +54,10 @@ final class DoctrineExtensions
     }
 
     /**
-     * Hooks only superclass metadata mapping drivers
-     * into given $driverChain of drivers for ORM
+     * Hooks only superclass extension metadata mapping drivers into
+     * the given driver chain of drivers for the ORM.
      */
-    public static function registerAbstractMappingIntoDriverChainORM(MappingDriverChain $driverChain, Reader $reader = null)
+    public static function registerAbstractMappingIntoDriverChainORM(MappingDriverChain $driverChain, Reader $reader = null): void
     {
         self::registerAnnotations();
         if (!$reader) {
@@ -65,10 +72,10 @@ final class DoctrineExtensions
     }
 
     /**
-     * Hooks all extensions metadata mapping drivers
-     * into given $driverChain of drivers for ODM MongoDB
+     * Hooks all extension metadata mapping drivers into
+     * the given driver chain of drivers for the MongoDB ODM.
      */
-    public static function registerMappingIntoDriverChainMongodbODM(MappingDriverChain $driverChain, Reader $reader = null)
+    public static function registerMappingIntoDriverChainMongodbODM(MappingDriverChain $driverChain, Reader $reader = null): void
     {
         self::registerAnnotations();
         if (!$reader) {
@@ -82,10 +89,10 @@ final class DoctrineExtensions
     }
 
     /**
-     * Hooks only superclass metadata mapping drivers
-     * into given $driverChain of drivers for ODM MongoDB
+     * Hooks only superclass extension metadata mapping drivers into
+     * the given driver chain of drivers for the MongoDB ODM.
      */
-    public static function registerAbstractMappingIntoDriverChainMongodbODM(MappingDriverChain $driverChain, Reader $reader = null)
+    public static function registerAbstractMappingIntoDriverChainMongodbODM(MappingDriverChain $driverChain, Reader $reader = null): void
     {
         self::registerAnnotations();
         if (!$reader) {
@@ -99,14 +106,14 @@ final class DoctrineExtensions
     }
 
     /**
-     * Includes all extension annotations once
+     * Registers all extension annotations.
      */
-    public static function registerAnnotations()
+    public static function registerAnnotations(): void
     {
         AnnotationRegistry::registerFile(__DIR__.'/Mapping/Annotation/All.php');
     }
 
-    private static function createAnnotationReader()
+    private static function createAnnotationReader(): AnnotationReader
     {
         $reader = new AnnotationReader();
 

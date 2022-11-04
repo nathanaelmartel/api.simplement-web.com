@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Doctrine\ORM\Mapping\Exception;
 
 use Doctrine\ORM\Exception\ORMException;
-use LogicException;
 
 use function sprintf;
 use function var_export;
@@ -17,9 +16,7 @@ final class InvalidCustomGenerator extends ORMException
         return new self('Cannot instantiate custom generator, no class has been defined');
     }
 
-    /**
-     * @param mixed[] $definition
-     */
+    /** @param mixed[] $definition */
     public static function onMissingClass(array $definition): self
     {
         return new self(sprintf(

@@ -8,6 +8,7 @@ use InvalidArgumentException;
 
 use function count;
 use function get_class;
+use function get_debug_type;
 use function implode;
 use function in_array;
 use function is_string;
@@ -35,9 +36,7 @@ abstract class Base
     /** @psalm-var list<string|object> */
     protected $parts = [];
 
-    /**
-     * @param mixed $args
-     */
+    /** @param mixed $args */
     public function __construct($args = [])
     {
         $this->addMultiple($args);
@@ -69,15 +68,11 @@ abstract class Base
     {
         if ($arg !== null && (! $arg instanceof self || $arg->count() > 0)) {
             // If we decide to keep Expr\Base instances, we can use this check
-            if (! is_string($arg)) {
-                $class = get_class($arg);
-
-                if (! in_array($class, $this->allowedClasses, true)) {
-                    throw new InvalidArgumentException(sprintf(
-                        "Expression of type '%s' not allowed in this context.",
-                        $class
-                    ));
-                }
+            if (! is_string($arg) && ! in_array(get_class($arg), $this->allowedClasses, true)) {
+                throw new InvalidArgumentException(sprintf(
+                    "Expression of type '%s' not allowed in this context.",
+                    get_debug_type($arg)
+                ));
             }
 
             $this->parts[] = $arg;
@@ -95,9 +90,7 @@ abstract class Base
         return count($this->parts);
     }
 
-    /**
-     * @return string
-     */
+    /** @return string */
     public function __toString()
     {
         if ($this->count() === 1) {

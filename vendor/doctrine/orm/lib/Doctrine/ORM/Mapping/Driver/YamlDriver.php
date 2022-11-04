@@ -6,14 +6,16 @@ namespace Doctrine\ORM\Mapping\Driver;
 
 use Doctrine\Deprecations\Deprecation;
 use Doctrine\ORM\Mapping\Builder\EntityListenerBuilder;
-use Doctrine\ORM\Mapping\ClassMetadata as Metadata;
+use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\MappingException;
-use Doctrine\Persistence\Mapping\ClassMetadata;
+use Doctrine\Persistence\Mapping\ClassMetadata as PersistenceClassMetadata;
 use Doctrine\Persistence\Mapping\Driver\FileDriver;
 use InvalidArgumentException;
+use LogicException;
 use Symfony\Component\Yaml\Yaml;
 
 use function array_map;
+use function class_exists;
 use function constant;
 use function defined;
 use function explode;
@@ -42,16 +44,29 @@ class YamlDriver extends FileDriver
         Deprecation::trigger(
             'doctrine/orm',
             'https://github.com/doctrine/orm/issues/8465',
-            'YAML mapping driver is deprecated and will be removed in Doctrine ORM 3.0, please migrate to annotation or XML driver.'
+            'YAML mapping driver is deprecated and will be removed in Doctrine ORM 3.0, please migrate to attribute or XML driver.'
         );
+
+        if (! class_exists(Yaml::class)) {
+            throw new LogicException(sprintf(
+                'The YAML metadata driver cannot be enabled because the "symfony/yaml" library'
+                . ' is not installed. Please run "composer require symfony/yaml" or choose a different'
+                . ' metadata driver.'
+            ));
+        }
 
         parent::__construct($locator, $fileExtension);
     }
 
     /**
      * {@inheritDoc}
+     *
+     * @psalm-param class-string<T> $className
+     * @psalm-param ClassMetadata<T> $metadata
+     *
+     * @template T of object
      */
-    public function loadMetadataForClass($className, ClassMetadata $metadata)
+    public function loadMetadataForClass($className, PersistenceClassMetadata $metadata)
     {
         $element = $this->getElement($className);
 
@@ -176,7 +191,7 @@ class YamlDriver extends FileDriver
         if (isset($element['inheritanceType'])) {
             $metadata->setInheritanceType(constant('Doctrine\ORM\Mapping\ClassMetadata::INHERITANCE_TYPE_' . strtoupper($element['inheritanceType'])));
 
-            if ($metadata->inheritanceType !== Metadata::INHERITANCE_TYPE_NONE) {
+            if ($metadata->inheritanceType !== ClassMetadata::INHERITANCE_TYPE_NONE) {
                 // Evaluate discriminatorColumn
                 if (isset($element['discriminatorColumn'])) {
                     $discrColumn = $element['discriminatorColumn'];
@@ -184,7 +199,7 @@ class YamlDriver extends FileDriver
                         [
                             'name' => isset($discrColumn['name']) ? (string) $discrColumn['name'] : null,
                             'type' => isset($discrColumn['type']) ? (string) $discrColumn['type'] : 'string',
-                            'length' => isset($discrColumn['length']) ? (string) $discrColumn['length'] : 255,
+                            'length' => isset($discrColumn['length']) ? (int) $discrColumn['length'] : 255,
                             'columnDefinition' => isset($discrColumn['columnDefinition']) ? (string) $discrColumn['columnDefinition'] : null,
                         ]
                     );
@@ -673,7 +688,7 @@ class YamlDriver extends FileDriver
 
                 // Check for `fetch`
                 if (isset($associationOverrideElement['fetch'])) {
-                    $override['fetch'] = constant(Metadata::class . '::FETCH_' . $associationOverrideElement['fetch']);
+                    $override['fetch'] = constant(ClassMetadata::class . '::FETCH_' . $associationOverrideElement['fetch']);
                 }
 
                 $metadata->setAssociationOverride($fieldName, $override);
@@ -786,6 +801,10 @@ class YamlDriver extends FileDriver
      *                   unique?: mixed,
      *                   options?: mixed,
      *                   nullable?: mixed,
+     *                   insertable?: mixed,
+     *                   updatable?: mixed,
+     *                   generated?: mixed,
+     *                   enumType?: class-string,
      *                   version?: mixed,
      *                   columnDefinition?: mixed
      *              }|null $column
@@ -801,6 +820,10 @@ class YamlDriver extends FileDriver
      *                   unique?: bool,
      *                   options?: mixed,
      *                   nullable?: mixed,
+     *                   notInsertable?: mixed,
+     *                   notUpdatable?: mixed,
+     *                   generated?: mixed,
+     *                   enumType?: class-string,
      *                   version?: mixed,
      *                   columnDefinition?: mixed
      *               }
@@ -848,12 +871,28 @@ class YamlDriver extends FileDriver
             $mapping['nullable'] = $column['nullable'];
         }
 
+        if (isset($column['insertable']) && ! (bool) $column['insertable']) {
+            $mapping['notInsertable'] = true;
+        }
+
+        if (isset($column['updatable']) && ! (bool) $column['updatable']) {
+            $mapping['notUpdatable'] = true;
+        }
+
+        if (isset($column['generated'])) {
+            $mapping['generated'] = constant('Doctrine\ORM\Mapping\ClassMetadata::GENERATED_' . $column['generated']);
+        }
+
         if (isset($column['version']) && $column['version']) {
             $mapping['version'] = $column['version'];
         }
 
         if (isset($column['columnDefinition'])) {
             $mapping['columnDefinition'] = $column['columnDefinition'];
+        }
+
+        if (isset($column['enumType'])) {
+            $mapping['enumType'] = $column['enumType'];
         }
 
         return $mapping;

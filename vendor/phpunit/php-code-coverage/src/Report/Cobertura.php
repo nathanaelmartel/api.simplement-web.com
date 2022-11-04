@@ -16,16 +16,16 @@ use function range;
 use function time;
 use DOMImplementation;
 use SebastianBergmann\CodeCoverage\CodeCoverage;
-use SebastianBergmann\CodeCoverage\Directory;
 use SebastianBergmann\CodeCoverage\Driver\WriteOperationFailedException;
 use SebastianBergmann\CodeCoverage\Node\File;
+use SebastianBergmann\CodeCoverage\Util\Filesystem;
 
 final class Cobertura
 {
     /**
      * @throws WriteOperationFailedException
      */
-    public function process(CodeCoverage $coverage, ?string $target = null, ?string $name = null): string
+    public function process(CodeCoverage $coverage, ?string $target = null): string
     {
         $time = (string) time();
 
@@ -84,9 +84,8 @@ final class Cobertura
 
             $packageElement    = $document->createElement('package');
             $packageComplexity = 0;
-            $packageName       = $name ?? '';
 
-            $packageElement->setAttribute('name', $packageName);
+            $packageElement->setAttribute('name', str_replace($report->pathAsString() . DIRECTORY_SEPARATOR, '', $item->pathAsString()));
 
             $linesValid   = $item->numberOfExecutableLines();
             $linesCovered = $item->numberOfExecutedLines();
@@ -292,7 +291,7 @@ final class Cobertura
         $buffer = $document->saveXML();
 
         if ($target !== null) {
-            Directory::create(dirname($target));
+            Filesystem::createDirectory(dirname($target));
 
             if (@file_put_contents($target, $buffer) === false) {
                 throw new WriteOperationFailedException($target);

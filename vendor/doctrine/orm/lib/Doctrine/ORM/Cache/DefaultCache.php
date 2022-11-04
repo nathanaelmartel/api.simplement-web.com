@@ -29,7 +29,10 @@ class DefaultCache implements Cache
      /** @var CacheFactory */
     private $cacheFactory;
 
-    /** @var QueryCache[] */
+    /**
+     * @var QueryCache[]
+     * @psalm-var array<string, QueryCache>
+     */
     private $queryCaches = [];
 
     /** @var QueryCache|null */
@@ -259,10 +262,7 @@ class DefaultCache implements Cache
         return $this->queryCaches[$regionName];
     }
 
-    /**
-     * @param ClassMetadata $metadata   The entity metadata.
-     * @param mixed         $identifier The entity identifier.
-     */
+    /** @param mixed $identifier The entity identifier. */
     private function buildEntityCacheKey(ClassMetadata $metadata, $identifier): EntityCacheKey
     {
         if (! is_array($identifier)) {
@@ -272,11 +272,7 @@ class DefaultCache implements Cache
         return new EntityCacheKey($metadata->rootEntityName, $identifier);
     }
 
-    /**
-     * @param ClassMetadata $metadata        The entity metadata.
-     * @param string        $association     The field name that represents the association.
-     * @param mixed         $ownerIdentifier The identifier of the owning entity.
-     */
+    /** @param mixed $ownerIdentifier The identifier of the owning entity. */
     private function buildCollectionCacheKey(
         ClassMetadata $metadata,
         string $association,
@@ -290,18 +286,20 @@ class DefaultCache implements Cache
     }
 
     /**
-     * @param ClassMetadata $metadata   The entity metadata.
-     * @param mixed         $identifier The entity identifier.
+     * @param mixed $identifier The entity identifier.
      *
      * @return array<string, mixed>
      */
     private function toIdentifierArray(ClassMetadata $metadata, $identifier): array
     {
-        if (is_object($identifier) && $this->em->getMetadataFactory()->hasMetadataFor(ClassUtils::getClass($identifier))) {
-            $identifier = $this->uow->getSingleIdentifierValue($identifier);
+        if (is_object($identifier)) {
+            $class = ClassUtils::getClass($identifier);
+            if ($this->em->getMetadataFactory()->hasMetadataFor($class)) {
+                $identifier = $this->uow->getSingleIdentifierValue($identifier);
 
-            if ($identifier === null) {
-                throw ORMInvalidArgumentException::invalidIdentifierBindingEntity();
+                if ($identifier === null) {
+                    throw ORMInvalidArgumentException::invalidIdentifierBindingEntity($class);
+                }
             }
         }
 

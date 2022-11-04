@@ -249,7 +249,7 @@ class ManyToManyPersister extends AbstractCollectionPersister
             $field          = $this->quoteStrategy->getColumnName($name, $targetClass, $this->platform);
             $whereClauses[] = sprintf('te.%s %s ?', $field, $operator);
             $params[]       = $value;
-            $paramTypes[]   = PersisterHelper::getTypeOfColumn($field, $targetClass, $this->em);
+            $paramTypes[]   = PersisterHelper::getTypeOfField($name, $targetClass, $this->em)[0];
         }
 
         $tableName = $this->quoteStrategy->getTableName($targetClass, $this->platform);
@@ -367,9 +367,7 @@ class ManyToManyPersister extends AbstractCollectionPersister
         return $conditions;
     }
 
-    /**
-     * @return string
-     */
+    /** @return string */
     protected function getDeleteSQL(PersistentCollection $collection)
     {
         $columns   = [];
@@ -501,7 +499,7 @@ class ManyToManyPersister extends AbstractCollectionPersister
      *
      * Internal note: Order of the parameters must be the same as the order of the columns in getInsertRowSql.
      *
-     * @param mixed $element
+     * @param object $element
      *
      * @return mixed[]
      * @psalm-return list<mixed>
@@ -757,17 +755,12 @@ class ManyToManyPersister extends AbstractCollectionPersister
         return '';
     }
 
-    /**
-     * @throws DBALException
-     */
+    /** @throws DBALException */
     private function getLimitSql(Criteria $criteria): string
     {
         $limit  = $criteria->getMaxResults();
         $offset = $criteria->getFirstResult();
-        if ($limit !== null || $offset !== null) {
-            return $this->platform->modifyLimitQuery('', $limit, $offset ?? 0);
-        }
 
-        return '';
+        return $this->platform->modifyLimitQuery('', $limit, $offset ?? 0);
     }
 }

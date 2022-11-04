@@ -952,6 +952,16 @@ class Application implements ResetInterface
                 throw new RuntimeException('Unable to subscribe to signal events. Make sure that the `pcntl` extension is installed and that "pcntl_*" functions are not disabled by your php.ini\'s "disable_functions" directive.');
             }
 
+            if (Terminal::hasSttyAvailable()) {
+                $sttyMode = shell_exec('stty -g');
+
+                foreach ([\SIGINT, \SIGTERM] as $signal) {
+                    $this->signalRegistry->register($signal, static function () use ($sttyMode) {
+                        shell_exec('stty '.$sttyMode);
+                    });
+                }
+            }
+
             if ($this->dispatcher) {
                 foreach ($this->signalsToDispatchEvent as $signal) {
                     $event = new ConsoleSignalEvent($command, $input, $output, $signal);
@@ -1040,7 +1050,7 @@ class Application implements ResetInterface
             new InputOption('--quiet', '-q', InputOption::VALUE_NONE, 'Do not output any message'),
             new InputOption('--verbose', '-v|vv|vvv', InputOption::VALUE_NONE, 'Increase the verbosity of messages: 1 for normal output, 2 for more verbose output and 3 for debug'),
             new InputOption('--version', '-V', InputOption::VALUE_NONE, 'Display this application version'),
-            new InputOption('--ansi', '', InputOption::VALUE_NEGATABLE, 'Force (or disable --no-ansi) ANSI output', false),
+            new InputOption('--ansi', '', InputOption::VALUE_NEGATABLE, 'Force (or disable --no-ansi) ANSI output', null),
             new InputOption('--no-interaction', '-n', InputOption::VALUE_NONE, 'Do not ask any interactive question'),
         ]);
     }

@@ -20,7 +20,6 @@ use Doctrine\ORM\Id\SequenceGenerator;
 use Doctrine\ORM\Id\UuidGenerator;
 use Doctrine\ORM\Mapping\Exception\CannotGenerateIds;
 use Doctrine\ORM\Mapping\Exception\InvalidCustomGenerator;
-use Doctrine\ORM\Mapping\Exception\TableGeneratorNotImplementedYet;
 use Doctrine\ORM\Mapping\Exception\UnknownGeneratorType;
 use Doctrine\Persistence\Mapping\AbstractClassMetadataFactory;
 use Doctrine\Persistence\Mapping\ClassMetadata as ClassMetadataInterface;
@@ -34,10 +33,11 @@ use function class_exists;
 use function count;
 use function end;
 use function explode;
+use function get_class;
 use function in_array;
 use function is_subclass_of;
+use function str_contains;
 use function strlen;
-use function strpos;
 use function strtolower;
 use function substr;
 
@@ -46,9 +46,7 @@ use function substr;
  * metadata mapping information of a class which describes how a class should be mapped
  * to a relational database.
  *
- * @method ClassMetadata[] getAllMetadata()
- * @method ClassMetadata[] getLoadedMetadata()
- * @method ClassMetadata getMetadataFor($className)
+ * @extends AbstractClassMetadataFactory<ClassMetadata>
  */
 class ClassMetadataFactory extends AbstractClassMetadataFactory
 {
@@ -67,9 +65,7 @@ class ClassMetadataFactory extends AbstractClassMetadataFactory
     /** @var mixed[] */
     private $embeddablesActiveNesting = [];
 
-    /**
-     * @return void
-     */
+    /** @return void */
     public function setEntityManager(EntityManagerInterface $em)
     {
         $this->em = $em;
@@ -91,14 +87,16 @@ class ClassMetadataFactory extends AbstractClassMetadataFactory
     protected function onNotFoundMetadata($className)
     {
         if (! $this->evm->hasListeners(Events::onClassMetadataNotFound)) {
-            return;
+            return null;
         }
 
         $eventArgs = new OnClassMetadataNotFoundEventArgs($className, $this->em);
 
         $this->evm->dispatchEvent(Events::onClassMetadataNotFound, $eventArgs);
+        $classMetadata = $eventArgs->getFoundMetadata();
+        assert($classMetadata instanceof ClassMetadata || $classMetadata === null);
 
-        return $eventArgs->getFoundMetadata();
+        return $classMetadata;
     }
 
     /**
@@ -194,6 +192,10 @@ class ClassMetadataFactory extends AbstractClassMetadataFactory
                 $class->containsForeignIdentifier = true;
             }
 
+            if ($parent->containsEnumIdentifier) {
+                $class->containsEnumIdentifier = true;
+            }
+
             if (! empty($parent->namedQueries)) {
                 $this->addInheritedNamedQueries($class, $parent);
             }
@@ -222,7 +224,7 @@ class ClassMetadataFactory extends AbstractClassMetadataFactory
             $this->evm->dispatchEvent(Events::loadClassMetadata, $eventArgs);
         }
 
-        if ($class->changeTrackingPolicy === ClassMetadataInfo::CHANGETRACKING_NOTIFY) {
+        if ($class->changeTrackingPolicy === ClassMetadata::CHANGETRACKING_NOTIFY) {
             Deprecation::trigger(
                 'doctrine/orm',
                 'https://github.com/doctrine/orm/issues/8383',
@@ -339,7 +341,7 @@ class ClassMetadataFactory extends AbstractClassMetadataFactory
      */
     private function getShortName(string $className): string
     {
-        if (strpos($className, '\\') === false) {
+        if (! str_contains($className, '\\')) {
             return strtolower($className);
         }
 
@@ -555,6 +557,18 @@ class ClassMetadataFactory extends AbstractClassMetadataFactory
 
                 // Platforms that do not have native IDENTITY support need a sequence to emulate this behaviour.
                 if ($this->getTargetPlatform()->usesSequenceEmulatedIdentityColumns()) {
+                    Deprecation::trigger(
+                        'doctrine/orm',
+                        'https://github.com/doctrine/orm/issues/8850',
+                        <<<'DEPRECATION'
+Context: Loading metadata for class %s
+Problem: Using the IDENTITY generator strategy with platform "%s" is deprecated and will not be possible in Doctrine ORM 3.0.
+Solution: Use the SEQUENCE generator strategy instead.
+DEPRECATION
+                            ,
+                        $class->name,
+                        get_class($this->getTargetPlatform())
+                    );
                     $columnName     = $class->getSingleIdentifierColumnName();
                     $quoted         = isset($class->fieldMappings[$fieldName]['quoted']) || isset($class->table['quoted']);
                     $sequencePrefix = $class->getSequencePrefix($this->getTargetPlatform());
@@ -643,11 +657,11 @@ class ClassMetadataFactory extends AbstractClassMetadataFactory
         }
     }
 
+    /** @psalm-return ClassMetadata::GENERATOR_TYPE_SEQUENCE|ClassMetadata::GENERATOR_TYPE_IDENTITY */
     private function determineIdGeneratorStrategy(AbstractPlatform $platform): int
     {
         if (
             $platform instanceof Platforms\OraclePlatform
-            || $platform instanceof Platforms\PostgreSQL94Platform
             || $platform instanceof Platforms\PostgreSQLPlatform
         ) {
             return ClassMetadata::GENERATOR_TYPE_SEQUENCE;
@@ -667,7 +681,7 @@ class ClassMetadataFactory extends AbstractClassMetadataFactory
     private function truncateSequenceName(string $schemaElementName): string
     {
         $platform = $this->getTargetPlatform();
-        if (! in_array($platform->getName(), ['oracle', 'sqlanywhere'], true)) {
+        if (! $platform instanceof Platforms\OraclePlatform && ! $platform instanceof Platforms\SQLAnywherePlatform) {
             return $schemaElementName;
         }
 
@@ -717,7 +731,9 @@ class ClassMetadataFactory extends AbstractClassMetadataFactory
     }
 
     /**
-     * {@inheritDoc}
+     * @deprecated This method will be removed in ORM 3.0.
+     *
+     * @return class-string
      */
     protected function getFqcnFromAlias($namespaceAlias, $simpleClassName)
     {
@@ -738,7 +754,7 @@ class ClassMetadataFactory extends AbstractClassMetadataFactory
      */
     protected function isEntity(ClassMetadataInterface $class)
     {
-        return isset($class->isMappedSuperclass) && $class->isMappedSuperclass === false;
+        return ! $class->isMappedSuperclass;
     }
 
     private function getTargetPlatform(): Platforms\AbstractPlatform

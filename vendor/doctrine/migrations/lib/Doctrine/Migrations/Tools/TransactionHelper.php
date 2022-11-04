@@ -6,7 +6,10 @@ namespace Doctrine\Migrations\Tools;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\Deprecations\Deprecation;
+use LogicException;
 use PDO;
+
+use function method_exists;
 
 /**
  * @internal
@@ -57,10 +60,30 @@ DEPRECATION
 
     private static function inTransaction(Connection $connection): bool
     {
-        $wrappedConnection = $connection->getWrappedConnection();
+        $innermostConnection = self::getInnerConnection($connection);
 
         /* Attempt to commit or rollback while no transaction is running
            results in an exception since PHP 8 + pdo_mysql combination */
-        return ! $wrappedConnection instanceof PDO || $wrappedConnection->inTransaction();
+        return ! $innermostConnection instanceof PDO || $innermostConnection->inTransaction();
+    }
+
+    /**
+     * @return object|resource|null
+     */
+    private static function getInnerConnection(Connection $connection)
+    {
+        if (method_exists($connection, 'getNativeConnection')) {
+            try {
+                return $connection->getNativeConnection();
+            } catch (LogicException $e) {
+            }
+        }
+
+        $innermostConnection = $connection;
+        while (method_exists($innermostConnection, 'getWrappedConnection')) {
+            $innermostConnection = $innermostConnection->getWrappedConnection();
+        }
+
+        return $innermostConnection;
     }
 }
