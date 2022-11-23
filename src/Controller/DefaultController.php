@@ -11,6 +11,9 @@ class DefaultController extends AbstractController
     #[Route('/', name: 'default')]
     public function index(): Response
     {
+        return $this->render('default/index.html.twig', [
+            'content' => file_get_contents('../README.md')
+        ]);
         return $this->redirect('https://www.simplement-web.com');
     }
 }

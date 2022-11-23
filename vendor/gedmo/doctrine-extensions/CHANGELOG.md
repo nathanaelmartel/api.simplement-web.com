@@ -19,6 +19,14 @@ a release.
 
 ## [Unreleased]
 
+## [3.10.0] - 2022-11-14
+### Changed
+- Bump "doctrine/event-manager" dependency from ^1.0 to ^1.2.
+
+### Fixed
+- Tree: TreeRoot without rootIdentifierMethod when calling getNextSiblings (#2518)
+- Sortable: Fix duplicated positions when manually updating position on more than one object (#2439)
+
 ## [3.9.0] - 2022-09-22
 ### Fixed
 - Tree: Allow sorting children by a ManyToOne relation (#2492)

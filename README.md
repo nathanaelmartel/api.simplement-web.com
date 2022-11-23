@@ -2,6 +2,8 @@
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg?style=flat-square)](http://www.gnu.org/licenses/gpl-3.0)
 
+*Réalisé par [Nathanaël Martel](https://www.simplement-web.com/)*
+
 ## Périodes de soldes
 
 Pour tous les départements : `https://api.simplement-web.com/soldes/2023`
@@ -26,4 +28,4 @@ Réponse :
 
 S'il n'est pas trouvé, une erreur 404 est renvoyé, avec le code original et le label «&nbsp;indéterminée&nbsp;».
 
-*Basé sur : [fr.wikipedia.org](https://fr.wikipedia.org/wiki/Plan_comptable_g%C3%A9n%C3%A9ral_(France))
+*Basé sur : [fr.wikipedia.org](https://fr.wikipedia.org/wiki/Plan_comptable_g%C3%A9n%C3%A9ral_(France))*
