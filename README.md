@@ -4,9 +4,9 @@
 
 ## Périodes de soldes
 
-Pour tous les départements : `https://api.simplement-web.com/soldes`
+Pour tous les départements : `https://api.simplement-web.com/soldes/2023`
 
-Pour un départements : `https://api.simplement-web.com/07`
+Pour un département : `https://api.simplement-web.com/soldes/2023/07`
 
 *Basé sur : [www.legifrance.gouv.fr](https://www.legifrance.gouv.fr/loda/id/LEGITEXT000038524717/)*
 
