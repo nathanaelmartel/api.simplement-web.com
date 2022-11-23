@@ -27,14 +27,6 @@ class MakeSoldeCommand extends Command
         $this->em = $em;
     }
 
-    protected function configure(): void
-    {
-        $this
-            ->addArgument('arg1', InputArgument::OPTIONAL, 'Argument description')
-            ->addOption('option1', null, InputOption::VALUE_NONE, 'Option description')
-        ;
-    }
-
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
@@ -79,7 +71,7 @@ class MakeSoldeCommand extends Command
         }
 
         $period_exceptions = [
-            'Hiver' => ['54', '55', '57', '66', '88', '971', '974', '975', '977', '978'],
+            'Hiver' => ['54', '55', '57', '88', '971', '974', '975', '977', '978'],
             'Été' => ['06', '2A', '2B', '971', '972', '974', '975', '977', '978'],
         ];
 
@@ -125,7 +117,7 @@ class MakeSoldeCommand extends Command
 
     private function getStartAtException($year, $period, $departement)
     {
-        if ((in_array($departement, ['06', '66'])) && ('Été' == $period)) {
+        if ((in_array($departement, ['06'])) && ('Été' == $period)) {
             // premier mercredi du mois de juillet
             $start_at = new \DateTime($year.'-07-01');
             $start_at->modify('next wednesday');
