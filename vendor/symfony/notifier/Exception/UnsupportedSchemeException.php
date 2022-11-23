@@ -32,9 +32,17 @@ class UnsupportedSchemeException extends LogicException
             'class' => Bridge\Discord\DiscordTransportFactory::class,
             'package' => 'symfony/discord-notifier',
         ],
+        'engagespot' => [
+            'class' => Bridge\Engagespot\EngagespotTransportFactory::class,
+            'package' => 'symfony/engagespot-notifier',
+        ],
         'esendex' => [
             'class' => Bridge\Esendex\EsendexTransportFactory::class,
             'package' => 'symfony/esendex-notifier',
+        ],
+        'expo' => [
+            'class' => Bridge\Expo\ExpoTransportFactory::class,
+            'package' => 'symfony/expo-notifier',
         ],
         'fakechat' => [
             'class' => Bridge\FakeChat\FakeChatTransportFactory::class,
@@ -47,6 +55,10 @@ class UnsupportedSchemeException extends LogicException
         'firebase' => [
             'class' => Bridge\Firebase\FirebaseTransportFactory::class,
             'package' => 'symfony/firebase-notifier',
+        ],
+        'forty-six-elks' => [
+            'class' => Bridge\FortySixElks\FortySixElksTransportFactory::class,
+            'package' => 'symfony/forty-six-elks-notifier',
         ],
         'freemobile' => [
             'class' => Bridge\FreeMobile\FreeMobileTransportFactory::class,
@@ -80,6 +92,10 @@ class UnsupportedSchemeException extends LogicException
             'class' => Bridge\LinkedIn\LinkedInTransportFactory::class,
             'package' => 'symfony/linked-in-notifier',
         ],
+        'mailjet' => [
+            'class' => Bridge\Mailjet\MailjetTransportFactory::class,
+            'package' => 'symfony/mailjet-notifier',
+        ],
         'mattermost' => [
             'class' => Bridge\Mattermost\MattermostTransportFactory::class,
             'package' => 'symfony/mattermost-notifier',
@@ -92,6 +108,10 @@ class UnsupportedSchemeException extends LogicException
             'class' => Bridge\MessageBird\MessageBirdTransportFactory::class,
             'package' => 'symfony/message-bird-notifier',
         ],
+        'messagemedia' => [
+            'class' => Bridge\MessageMedia\MessageMediaTransportFactory::class,
+            'package' => 'symfony/message-media-notifier',
+        ],
         'microsoftteams' => [
             'class' => Bridge\MicrosoftTeams\MicrosoftTeamsTransportFactory::class,
             'package' => 'symfony/microsoft-teams-notifier',
@@ -100,13 +120,17 @@ class UnsupportedSchemeException extends LogicException
             'class' => Bridge\Mobyt\MobytTransportFactory::class,
             'package' => 'symfony/mobyt-notifier',
         ],
-        'nexmo' => [
-            'class' => Bridge\Nexmo\NexmoTransportFactory::class,
-            'package' => 'symfony/nexmo-notifier',
-        ],
         'octopush' => [
             'class' => Bridge\Octopush\OctopushTransportFactory::class,
             'package' => 'symfony/octopush-notifier',
+        ],
+        'onesignal' => [
+            'class' => Bridge\OneSignal\OneSignalTransportFactory::class,
+            'package' => 'symfony/one-signal-notifier',
+        ],
+        'orange-sms' => [
+            'class' => Bridge\OrangeSms\OrangeSmsTransportFactory::class,
+            'package' => 'symfony/orange-sms-notifier',
         ],
         'ovhcloud' => [
             'class' => Bridge\OvhCloud\OvhCloudTransportFactory::class,
@@ -115,6 +139,10 @@ class UnsupportedSchemeException extends LogicException
         'rocketchat' => [
             'class' => Bridge\RocketChat\RocketChatTransportFactory::class,
             'package' => 'symfony/rocket-chat-notifier',
+        ],
+        'sendberry' => [
+            'class' => Bridge\Sendberry\SendberryTransportFactory::class,
+            'package' => 'symfony/sendberry-notifier',
         ],
         'sendinblue' => [
             'class' => Bridge\Sendinblue\SendinblueTransportFactory::class,
@@ -128,6 +156,10 @@ class UnsupportedSchemeException extends LogicException
             'class' => Bridge\Slack\SlackTransportFactory::class,
             'package' => 'symfony/slack-notifier',
         ],
+        'sms77' => [
+            'class' => Bridge\Sms77\Sms77TransportFactory::class,
+            'package' => 'symfony/sms77-notifier',
+        ],
         'smsapi' => [
             'class' => Bridge\Smsapi\SmsapiTransportFactory::class,
             'package' => 'symfony/smsapi-notifier',
@@ -135,6 +167,14 @@ class UnsupportedSchemeException extends LogicException
         'smsbiuras' => [
             'class' => Bridge\SmsBiuras\SmsBiurasTransportFactory::class,
             'package' => 'symfony/sms-biuras-notifier',
+        ],
+        'smsc' => [
+            'class' => Bridge\Smsc\SmscTransportFactory::class,
+            'package' => 'symfony/smsc-notifier',
+        ],
+        'sns' => [
+            'class' => Bridge\AmazonSns\AmazonSnsTransportFactory::class,
+            'package' => 'symfony/amazon-sns-notifier',
         ],
         'spothit' => [
             'class' => Bridge\SpotHit\SpotHitTransportFactory::class,
@@ -144,9 +184,25 @@ class UnsupportedSchemeException extends LogicException
             'class' => Bridge\Telegram\TelegramTransportFactory::class,
             'package' => 'symfony/telegram-notifier',
         ],
+        'telnyx' => [
+            'class' => Bridge\Telnyx\TelnyxTransportFactory::class,
+            'package' => 'symfony/telnyx-notifier',
+        ],
+        'turbosms' => [
+            'class' => Bridge\TurboSms\TurboSmsTransportFactory::class,
+            'package' => 'symfony/turbo-sms-notifier',
+        ],
         'twilio' => [
             'class' => Bridge\Twilio\TwilioTransportFactory::class,
             'package' => 'symfony/twilio-notifier',
+        ],
+        'vonage' => [
+            'class' => Bridge\Vonage\VonageTransportFactory::class,
+            'package' => 'symfony/vonage-notifier',
+        ],
+        'yunpian' => [
+            'class' => Bridge\Yunpian\YunpianTransportFactory::class,
+            'package' => 'symfony/yunpian-notifier',
         ],
         'zulip' => [
             'class' => Bridge\Zulip\ZulipTransportFactory::class,

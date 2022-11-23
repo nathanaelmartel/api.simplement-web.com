@@ -29,16 +29,22 @@ final class NativeResponse implements ResponseInterface, StreamableInterface
     use CommonResponseTrait;
     use TransportResponseTrait;
 
+    /**
+     * @var resource
+     */
     private $context;
-    private $url;
+    private string $url;
     private $resolver;
     private $onProgress;
-    private $remaining;
+    private ?int $remaining = null;
+
+    /**
+     * @var resource|null
+     */
     private $buffer;
-    private $multi;
-    private $debugBuffer;
-    private $shouldBuffer;
-    private $pauseExpiry = 0;
+
+    private NativeClientState $multi;
+    private float $pauseExpiry = 0.0;
 
     /**
      * @internal
@@ -60,7 +66,9 @@ final class NativeResponse implements ResponseInterface, StreamableInterface
         // Temporary resource to dechunk the response stream
         $this->buffer = fopen('php://temp', 'w+');
 
+        $info['original_url'] = implode('', $info['url']);
         $info['user_data'] = $options['user_data'];
+        $info['max_duration'] = $options['max_duration'];
         ++$multi->responseCount;
 
         $this->initializer = static function (self $response) {
@@ -83,7 +91,7 @@ final class NativeResponse implements ResponseInterface, StreamableInterface
     /**
      * {@inheritdoc}
      */
-    public function getInfo(string $type = null)
+    public function getInfo(string $type = null): mixed
     {
         if (!$info = $this->finalInfo) {
             $info = $this->info;
@@ -120,7 +128,7 @@ final class NativeResponse implements ResponseInterface, StreamableInterface
                 throw new TransportException($msg);
             }
 
-            $this->logger && $this->logger->info(sprintf('%s for "%s".', $msg, $url ?? $this->url));
+            $this->logger?->info(sprintf('%s for "%s".', $msg, $url ?? $this->url));
         });
 
         try {
@@ -156,7 +164,7 @@ final class NativeResponse implements ResponseInterface, StreamableInterface
                     break;
                 }
 
-                $this->logger && $this->logger->info(sprintf('Redirecting: "%s %s"', $this->info['http_code'], $url ?? $this->url));
+                $this->logger?->info(sprintf('Redirecting: "%s %s"', $this->info['http_code'], $url ?? $this->url));
             }
         } catch (\Throwable $e) {
             $this->close();
@@ -358,7 +366,7 @@ final class NativeResponse implements ResponseInterface, StreamableInterface
                 continue;
             }
 
-            if ($pauseExpiry && ($now ?? $now = microtime(true)) < $pauseExpiry) {
+            if ($pauseExpiry && ($now ??= microtime(true)) < $pauseExpiry) {
                 $timeout = min($timeout, $pauseExpiry - $now);
                 continue;
             }

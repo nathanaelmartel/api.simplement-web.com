@@ -1,6 +1,33 @@
 CHANGELOG
 =========
 
+6.1
+---
+
+ * Add `TraceableSerializer`, `TraceableNormalizer`, `TraceableEncoder` and `SerializerDataCollector` to integrate with the web profiler
+ * Add the ability to create contexts using context builders
+ * Set `Context` annotation as not final
+ * Deprecate `ContextAwareNormalizerInterface`, use `NormalizerInterface` instead
+ * Deprecate `ContextAwareDenormalizerInterface`, use `DenormalizerInterface` instead
+ * Deprecate supporting denormalization for `AbstractUid` in `UidNormalizer`, use one of `AbstractUid` child class instead
+ * Deprecate denormalizing to an abstract class in `UidNormalizer`
+ * Add support for `can*()` methods to `ObjectNormalizer`
+
+6.0
+---
+
+ * Remove `ArrayDenormalizer::setSerializer()`, call `setDenormalizer()` instead
+ * Remove the ability to create instances of the annotation classes by passing an array of parameters, use named arguments instead
+
+5.4
+---
+
+ * Add support of PHP backed enumerations
+ * Add support for serializing empty array as object
+ * Return empty collections as `ArrayObject` from `Serializer::normalize()` when `PRESERVE_EMPTY_OBJECTS` is set
+ * Add support for collecting type errors during denormalization
+ * Add missing arguments in `MissingConstructorArgumentsException`
+
 5.3
 ---
 

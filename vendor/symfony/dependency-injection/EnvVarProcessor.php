@@ -20,9 +20,9 @@ use Symfony\Component\DependencyInjection\Exception\RuntimeException;
  */
 class EnvVarProcessor implements EnvVarProcessorInterface
 {
-    private $container;
-    private $loaders;
-    private $loadedVars = [];
+    private ContainerInterface $container;
+    private \Traversable $loaders;
+    private array $loadedVars = [];
 
     /**
      * @param EnvVarLoaderInterface[] $loaders
@@ -36,7 +36,7 @@ class EnvVarProcessor implements EnvVarProcessorInterface
     /**
      * {@inheritdoc}
      */
-    public static function getProvidedTypes()
+    public static function getProvidedTypes(): array
     {
         return [
             'base64' => 'string',
@@ -62,7 +62,7 @@ class EnvVarProcessor implements EnvVarProcessorInterface
     /**
      * {@inheritdoc}
      */
-    public function getEnv(string $prefix, string $name, \Closure $getEnv)
+    public function getEnv(string $prefix, string $name, \Closure $getEnv): mixed
     {
         $i = strpos($name, ':');
 
@@ -104,7 +104,7 @@ class EnvVarProcessor implements EnvVarProcessorInterface
                 if ('' !== $env && null !== $env) {
                     return $env;
                 }
-            } catch (EnvNotFoundException $e) {
+            } catch (EnvNotFoundException) {
                 // no-op
             }
 
@@ -112,7 +112,7 @@ class EnvVarProcessor implements EnvVarProcessorInterface
         }
 
         if ('file' === $prefix || 'require' === $prefix) {
-            if (!is_scalar($file = $getEnv($name))) {
+            if (!\is_scalar($file = $getEnv($name))) {
                 throw new RuntimeException(sprintf('Invalid file name: env var "%s" is non-scalar.', $name));
             }
             if (!is_file($file)) {
@@ -160,7 +160,7 @@ class EnvVarProcessor implements EnvVarProcessorInterface
                     if ($ended || $count === $i) {
                         $loaders = $this->loaders;
                     }
-                } catch (ParameterCircularReferenceException $e) {
+                } catch (ParameterCircularReferenceException) {
                     // skip loaders that need an env var that is not defined
                 } finally {
                     $this->loaders = $loaders;
@@ -184,7 +184,7 @@ class EnvVarProcessor implements EnvVarProcessorInterface
             return null;
         }
 
-        if (!is_scalar($env)) {
+        if (!\is_scalar($env)) {
             throw new RuntimeException(sprintf('Non-scalar env var "%s" cannot be cast to "%s".', $name, $prefix));
         }
 
@@ -283,7 +283,7 @@ class EnvVarProcessor implements EnvVarProcessorInterface
                     $value = $this->container->getParameter($match[1]);
                 }
 
-                if (!is_scalar($value)) {
+                if (!\is_scalar($value)) {
                     throw new RuntimeException(sprintf('Parameter "%s" found when resolving env var "%s" must be scalar, "%s" given.', $match[1], $name, get_debug_type($value)));
                 }
 
@@ -292,7 +292,7 @@ class EnvVarProcessor implements EnvVarProcessorInterface
         }
 
         if ('csv' === $prefix) {
-            return str_getcsv($env, ',', '"', \PHP_VERSION_ID >= 70400 ? '' : '\\');
+            return str_getcsv($env, ',', '"', '');
         }
 
         if ('trim' === $prefix) {

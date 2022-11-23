@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Solde;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Annotation\Route;
@@ -10,11 +11,10 @@ use Symfony\Component\Routing\Annotation\Route;
 class ApiSoldeController extends AbstractController
 {
     #[Route('/solde', name: 'api_solde')]
-    public function index()
+    public function index(EntityManagerInterface $em)
     {
         $datas = [];
 
-        $em = $this->getDoctrine()->getManager();
         $soldes = $em->getRepository(Solde::class)->findBy([
             'annee' => [
                 (int) date('Y'),
@@ -36,11 +36,10 @@ class ApiSoldeController extends AbstractController
     }
 
     #[Route('/solde/{year}', name: 'api_solde_year')]
-    public function year(int $year)
+    public function year(EntityManagerInterface $em, int $year)
     {
         $datas = [];
 
-        $em = $this->getDoctrine()->getManager();
         $soldes = $em->getRepository(Solde::class)->findBy([
             'annee' => $year,
         ], ['start_at' => 'ASC']);
@@ -59,11 +58,10 @@ class ApiSoldeController extends AbstractController
     }
 
     #[Route('/solde/{year}/{departement}', name: 'api_solde_departement')]
-    public function departement(int $year, string $departement)
+    public function departement(EntityManagerInterface $em, int $year, string $departement)
     {
         $datas = [];
 
-        $em = $this->getDoctrine()->getManager();
         $soldes = $em->getRepository(Solde::class)->findBy([
             'annee' => $year,
             'departement' => $departement,

@@ -38,8 +38,6 @@ class YamlSourceManipulator
      * @var LoggerInterface|null
      */
     private $logger;
-
-    private $contents;
     private $currentData;
 
     private $currentPosition = 0;
@@ -50,9 +48,9 @@ class YamlSourceManipulator
     private $arrayFormatForDepths = [];
     private $arrayTypeForDepths = [];
 
-    public function __construct(string $contents)
-    {
-        $this->contents = $contents;
+    public function __construct(
+        private string $contents,
+    ) {
         $this->currentData = Yaml::parse($contents);
 
         if (!\is_array($this->currentData)) {
@@ -968,7 +966,7 @@ class YamlSourceManipulator
         }
 
         $context = [
-            'key' => isset($this->currentPath[$this->depth]) ? $this->currentPath[$this->depth] : 'n/a',
+            'key' => $this->currentPath[$this->depth] ?? 'n/a',
             'depth' => $this->depth,
             'position' => $this->currentPosition,
             'indentation' => $this->indentationForDepths[$this->depth],

@@ -22,7 +22,7 @@ use Symfony\Component\Mailer\EventListener\MessageLoggerListener;
  */
 final class MessageDataCollector extends DataCollector
 {
-    private $events;
+    private MessageEvents $events;
 
     public function __construct(MessageLoggerListener $logger)
     {
@@ -43,6 +43,14 @@ final class MessageDataCollector extends DataCollector
     }
 
     /**
+     * @internal
+     */
+    public function base64Encode(string $data): string
+    {
+        return base64_encode($data);
+    }
+
+    /**
      * {@inheritdoc}
      */
     public function reset()
@@ -53,7 +61,7 @@ final class MessageDataCollector extends DataCollector
     /**
      * {@inheritdoc}
      */
-    public function getName()
+    public function getName(): string
     {
         return 'mailer';
     }

@@ -16,6 +16,7 @@ use Symfony\Bundle\FrameworkBundle\Command\AssetsInstallCommand;
 use Symfony\Bundle\FrameworkBundle\Command\CacheClearCommand;
 use Symfony\Bundle\FrameworkBundle\Command\CachePoolClearCommand;
 use Symfony\Bundle\FrameworkBundle\Command\CachePoolDeleteCommand;
+use Symfony\Bundle\FrameworkBundle\Command\CachePoolInvalidateTagsCommand;
 use Symfony\Bundle\FrameworkBundle\Command\CachePoolListCommand;
 use Symfony\Bundle\FrameworkBundle\Command\CachePoolPruneCommand;
 use Symfony\Bundle\FrameworkBundle\Command\CacheWarmupCommand;
@@ -39,6 +40,7 @@ use Symfony\Bundle\FrameworkBundle\Command\WorkflowDumpCommand;
 use Symfony\Bundle\FrameworkBundle\Command\YamlLintCommand;
 use Symfony\Bundle\FrameworkBundle\EventListener\SuggestMissingPackageSubscriber;
 use Symfony\Component\Console\EventListener\ErrorListener;
+use Symfony\Component\Dotenv\Command\DebugCommand as DotenvDebugCommand;
 use Symfony\Component\Messenger\Command\ConsumeMessagesCommand;
 use Symfony\Component\Messenger\Command\DebugCommand;
 use Symfony\Component\Messenger\Command\FailedMessagesRemoveCommand;
@@ -92,6 +94,12 @@ return static function (ContainerConfigurator $container) {
             ])
             ->tag('console.command')
 
+        ->set('console.command.cache_pool_invalidate_tags', CachePoolInvalidateTagsCommand::class)
+            ->args([
+                tagged_locator('cache.taggable', 'pool'),
+            ])
+            ->tag('console.command')
+
         ->set('console.command.cache_pool_delete', CachePoolDeleteCommand::class)
             ->args([
                 service('cache.global_clearer'),
@@ -129,6 +137,13 @@ return static function (ContainerConfigurator $container) {
             ])
             ->tag('console.command')
 
+        ->set('console.command.dotenv_debug', DotenvDebugCommand::class)
+            ->args([
+                param('kernel.environment'),
+                param('kernel.project_dir'),
+            ])
+            ->tag('console.command')
+
         ->set('console.command.event_dispatcher_debug', EventDispatcherDebugCommand::class)
             ->args([
                 tagged_locator('event_dispatcher.dispatcher', 'name'),
@@ -142,6 +157,8 @@ return static function (ContainerConfigurator $container) {
                 service('event_dispatcher'),
                 service('logger')->nullOnInvalid(),
                 [], // Receiver names
+                service('messenger.listener.reset_services')->nullOnInvalid(),
+                [], // Bus names
             ])
             ->tag('console.command')
             ->tag('monolog.logger', ['channel' => 'messenger'])
@@ -212,10 +229,11 @@ return static function (ContainerConfigurator $container) {
                 null, // twig.default_path
                 [], // Translator paths
                 [], // Twig paths
+                param('kernel.enabled_locales'),
             ])
             ->tag('console.command')
 
-        ->set('console.command.translation_update', TranslationUpdateCommand::class)
+        ->set('console.command.translation_extract', TranslationUpdateCommand::class)
             ->args([
                 service('translation.writer'),
                 service('translation.reader'),
@@ -225,6 +243,7 @@ return static function (ContainerConfigurator $container) {
                 null, // twig.default_path
                 [], // Translator paths
                 [], // Twig paths
+                param('kernel.enabled_locales'),
             ])
             ->tag('console.command')
 

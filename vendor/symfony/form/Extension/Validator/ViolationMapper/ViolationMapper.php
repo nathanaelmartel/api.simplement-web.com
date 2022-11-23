@@ -28,9 +28,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  */
 class ViolationMapper implements ViolationMapperInterface
 {
-    private $formRenderer;
-    private $translator;
-    private $allowNonSynchronized = false;
+    private ?FormRendererInterface $formRenderer;
+    private ?TranslatorInterface $translator;
+    private bool $allowNonSynchronized = false;
 
     public function __construct(FormRendererInterface $formRenderer = null, TranslatorInterface $translator = null)
     {
@@ -153,7 +153,7 @@ class ViolationMapper implements ViolationMapperInterface
             $message = $violation->getMessage();
             $messageTemplate = $violation->getMessageTemplate();
 
-            if (false !== strpos($message, '{{ label }}') || false !== strpos($messageTemplate, '{{ label }}')) {
+            if (str_contains($message, '{{ label }}') || str_contains($messageTemplate, '{{ label }}')) {
                 $form = $scope;
 
                 do {
@@ -185,12 +185,17 @@ class ViolationMapper implements ViolationMapperInterface
 
                     if (null !== $this->translator) {
                         $form = $scope;
-                        $translationParameters = $form->getConfig()->getOption('label_translation_parameters', []);
+                        $translationParameters[] = $form->getConfig()->getOption('label_translation_parameters', []);
 
                         do {
                             $translationDomain = $form->getConfig()->getOption('translation_domain');
-                            $translationParameters = array_merge($form->getConfig()->getOption('label_translation_parameters', []), $translationParameters);
+                            array_unshift(
+                                $translationParameters,
+                                $form->getConfig()->getOption('label_translation_parameters', [])
+                            );
                         } while (null === $translationDomain && null !== $form = $form->getParent());
+
+                        $translationParameters = array_merge([], ...$translationParameters);
 
                         $label = $this->translator->trans(
                             $label,

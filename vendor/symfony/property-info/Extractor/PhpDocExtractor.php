@@ -36,7 +36,7 @@ class PhpDocExtractor implements PropertyDescriptionExtractorInterface, Property
     public const MUTATOR = 2;
 
     /**
-     * @var DocBlock[]
+     * @var array<string, array{DocBlock|null, int|null, string|null}>
      */
     private $docBlocks = [];
 
@@ -128,19 +128,11 @@ class PhpDocExtractor implements PropertyDescriptionExtractorInterface, Property
             return null;
         }
 
-        switch ($source) {
-            case self::PROPERTY:
-                $tag = 'var';
-                break;
-
-            case self::ACCESSOR:
-                $tag = 'return';
-                break;
-
-            case self::MUTATOR:
-                $tag = 'param';
-                break;
-        }
+        $tag = match ($source) {
+            self::PROPERTY => 'var',
+            self::ACCESSOR => 'return',
+            self::MUTATOR => 'param',
+        };
 
         $parentClass = null;
         $types = [];
@@ -155,7 +147,7 @@ class PhpDocExtractor implements PropertyDescriptionExtractorInterface, Property
                             break;
 
                         case 'parent':
-                            if (false !== $resolvedClass = $parentClass ?? $parentClass = get_parent_class($class)) {
+                            if (false !== $resolvedClass = $parentClass ??= get_parent_class($class)) {
                                 break;
                             }
                             // no break
@@ -196,7 +188,7 @@ class PhpDocExtractor implements PropertyDescriptionExtractorInterface, Property
         /** @var DocBlock\Tags\Var_|DocBlock\Tags\Return_|DocBlock\Tags\Param $tag */
         foreach ($docBlock->getTagsByName('param') as $tag) {
             if ($tag && null !== $tag->getType()) {
-                $types = array_merge($types, $this->phpDocTypeHelper->getTypes($tag->getType()));
+                $types[] = $this->phpDocTypeHelper->getTypes($tag->getType());
             }
         }
 
@@ -204,14 +196,14 @@ class PhpDocExtractor implements PropertyDescriptionExtractorInterface, Property
             return null;
         }
 
-        return $types;
+        return array_merge([], ...$types);
     }
 
     private function getDocBlockFromConstructor(string $class, string $property): ?DocBlock
     {
         try {
             $reflectionClass = new \ReflectionClass($class);
-        } catch (\ReflectionException $e) {
+        } catch (\ReflectionException) {
             return null;
         }
         $reflectionConstructor = $reflectionClass->getConstructor();
@@ -223,7 +215,7 @@ class PhpDocExtractor implements PropertyDescriptionExtractorInterface, Property
             $docBlock = $this->docBlockFactory->create($reflectionConstructor, $this->contextFactory->createFromReflector($reflectionConstructor));
 
             return $this->filterDocBlockParams($docBlock, $property);
-        } catch (\InvalidArgumentException $e) {
+        } catch (\InvalidArgumentException) {
             return null;
         }
     }
@@ -238,6 +230,9 @@ class PhpDocExtractor implements PropertyDescriptionExtractorInterface, Property
             $docBlock->getLocation(), $docBlock->isTemplateStart(), $docBlock->isTemplateEnd());
     }
 
+    /**
+     * @return array{DocBlock|null, int|null, string|null}
+     */
     private function getDocBlock(string $class, string $property): array
     {
         $propertyHash = sprintf('%s::%s', $class, $property);
@@ -246,9 +241,19 @@ class PhpDocExtractor implements PropertyDescriptionExtractorInterface, Property
             return $this->docBlocks[$propertyHash];
         }
 
+        try {
+            $reflectionProperty = new \ReflectionProperty($class, $property);
+        } catch (\ReflectionException) {
+            $reflectionProperty = null;
+        }
+
         $ucFirstProperty = ucfirst($property);
 
         switch (true) {
+            case $reflectionProperty?->isPromoted() && $docBlock = $this->getDocBlockFromConstructor($class, $property):
+                $data = [$docBlock, self::MUTATOR, null];
+                break;
+
             case $docBlock = $this->getDocBlockFromProperty($class, $property):
                 $data = [$docBlock, self::PROPERTY, null];
                 break;
@@ -273,7 +278,7 @@ class PhpDocExtractor implements PropertyDescriptionExtractorInterface, Property
         // Use a ReflectionProperty instead of $class to get the parent class if applicable
         try {
             $reflectionProperty = new \ReflectionProperty($class, $property);
-        } catch (\ReflectionException $e) {
+        } catch (\ReflectionException) {
             return null;
         }
 
@@ -287,13 +292,14 @@ class PhpDocExtractor implements PropertyDescriptionExtractorInterface, Property
 
         try {
             return $this->docBlockFactory->create($reflectionProperty, $this->createFromReflector($reflector));
-        } catch (\InvalidArgumentException $e) {
-            return null;
-        } catch (\RuntimeException $e) {
+        } catch (\InvalidArgumentException|\RuntimeException) {
             return null;
         }
     }
 
+    /**
+     * @return array{DocBlock, string}|null
+     */
     private function getDocBlockFromMethod(string $class, string $ucFirstProperty, int $type): ?array
     {
         $prefixes = self::ACCESSOR === $type ? $this->accessorPrefixes : $this->mutatorPrefixes;
@@ -314,7 +320,7 @@ class PhpDocExtractor implements PropertyDescriptionExtractorInterface, Property
                 ) {
                     break;
                 }
-            } catch (\ReflectionException $e) {
+            } catch (\ReflectionException) {
                 // Try the next prefix if the method doesn't exist
             }
         }
@@ -333,9 +339,7 @@ class PhpDocExtractor implements PropertyDescriptionExtractorInterface, Property
 
         try {
             return [$this->docBlockFactory->create($reflectionMethod, $this->createFromReflector($reflector)), $prefix];
-        } catch (\InvalidArgumentException $e) {
-            return null;
-        } catch (\RuntimeException $e) {
+        } catch (\InvalidArgumentException|\RuntimeException) {
             return null;
         }
     }

@@ -55,7 +55,7 @@ class DateIntervalType extends AbstractType
             throw new InvalidConfigurationException('The single_text widget does not support invertible intervals.');
         }
         if ($options['with_weeks'] && $options['with_days']) {
-            throw new InvalidConfigurationException('You can not enable weeks and days fields together.');
+            throw new InvalidConfigurationException('You cannot enable weeks and days fields together.');
         }
         $format = 'P';
         $parts = [];
@@ -233,11 +233,7 @@ class DateIntervalType extends AbstractType
             'compound' => $compound,
             'empty_data' => $emptyData,
             'labels' => [],
-            'invalid_message' => function (Options $options, $previousValue) {
-                return ($options['legacy_error_messages'] ?? true)
-                    ? $previousValue
-                    : 'Please choose a valid date interval.';
-            },
+            'invalid_message' => 'Please choose a valid date interval.',
         ]);
         $resolver->setNormalizer('placeholder', $placeholderNormalizer);
         $resolver->setNormalizer('labels', $labelsNormalizer);
@@ -284,7 +280,7 @@ class DateIntervalType extends AbstractType
     /**
      * {@inheritdoc}
      */
-    public function getBlockPrefix()
+    public function getBlockPrefix(): string
     {
         return 'dateinterval';
     }

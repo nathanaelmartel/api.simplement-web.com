@@ -27,11 +27,9 @@ class UuidToStringTransformer implements DataTransformerInterface
      *
      * @param Uuid $value A Uuid object
      *
-     * @return string|null A value as produced by Uid component
-     *
      * @throws TransformationFailedException If the given value is not a Uuid object
      */
-    public function transform($value)
+    public function transform(mixed $value): ?string
     {
         if (null === $value) {
             return null;
@@ -49,12 +47,10 @@ class UuidToStringTransformer implements DataTransformerInterface
      *
      * @param string $value A UUID string
      *
-     * @return Uuid|null An instance of Uuid
-     *
      * @throws TransformationFailedException If the given value is not a string,
      *                                       or could not be transformed
      */
-    public function reverseTransform($value)
+    public function reverseTransform(mixed $value): ?Uuid
     {
         if (null === $value || '' === $value) {
             return null;
@@ -64,12 +60,14 @@ class UuidToStringTransformer implements DataTransformerInterface
             throw new TransformationFailedException('Expected a string.');
         }
 
+        if (!Uuid::isValid($value)) {
+            throw new TransformationFailedException(sprintf('The value "%s" is not a valid UUID.', $value));
+        }
+
         try {
-            $uuid = new Uuid($value);
+            return Uuid::fromString($value);
         } catch (\InvalidArgumentException $e) {
             throw new TransformationFailedException(sprintf('The value "%s" is not a valid UUID.', $value), $e->getCode(), $e);
         }
-
-        return $uuid;
     }
 }

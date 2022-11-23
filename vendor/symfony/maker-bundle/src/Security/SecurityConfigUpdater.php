@@ -13,8 +13,7 @@ namespace Symfony\Bundle\MakerBundle\Security;
 
 use Symfony\Bundle\MakerBundle\Util\YamlSourceManipulator;
 use Symfony\Component\HttpKernel\Log\Logger;
-use Symfony\Component\PasswordHasher\Hasher\NativePasswordHasher;
-use Symfony\Component\Security\Core\Encoder\NativePasswordEncoder;
+use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 
 /**
  * @author Ryan Weaver   <ryan@symfonycasts.com>
@@ -24,15 +23,11 @@ use Symfony\Component\Security\Core\Encoder\NativePasswordEncoder;
  */
 final class SecurityConfigUpdater
 {
-    /** @var YamlSourceManipulator */
-    private $manipulator;
+    private ?YamlSourceManipulator $manipulator;
 
-    /** @var Logger|null */
-    private $ysmLogger;
-
-    public function __construct(Logger $ysmLogger = null)
-    {
-        $this->ysmLogger = $ysmLogger;
+    public function __construct(
+        private ?Logger $ysmLogger = null,
+    ) {
     }
 
     /**
@@ -51,8 +46,7 @@ final class SecurityConfigUpdater
         $this->updateProviders($userConfig, $userClass);
 
         if ($userConfig->hasPassword()) {
-            $symfonyGte53 = class_exists(NativePasswordHasher::class);
-            $this->updatePasswordHashers($userConfig, $userClass, $symfonyGte53 ? 'password_hashers' : 'encoders');
+            $this->updatePasswordHashers($userConfig, $userClass);
         }
 
         $contents = $this->manipulator->getContents();
@@ -61,7 +55,7 @@ final class SecurityConfigUpdater
         return $contents;
     }
 
-    public function updateForAuthenticator(string $yamlSource, string $firewallName, $chosenEntryPoint, string $authenticatorClass, bool $logoutSetup, bool $useSecurity52): string
+    public function updateForAuthenticator(string $yamlSource, string $firewallName, $chosenEntryPoint, string $authenticatorClass, bool $logoutSetup): string
     {
         $this->manipulator = new YamlSourceManipulator($yamlSource);
 
@@ -82,50 +76,30 @@ final class SecurityConfigUpdater
         }
 
         if (!isset($newData['security']['firewalls'][$firewallName])) {
-            if ($useSecurity52) {
-                $newData['security']['firewalls'][$firewallName] = ['lazy' => true];
-            } else {
-                $newData['security']['firewalls'][$firewallName] = ['anonymous' => 'lazy'];
-            }
+            $newData['security']['firewalls'][$firewallName] = ['lazy' => true];
         }
 
         $firewall = $newData['security']['firewalls'][$firewallName];
 
-        if ($useSecurity52) {
-            if (isset($firewall['custom_authenticator'])) {
-                if (\is_array($firewall['custom_authenticator'])) {
-                    $firewall['custom_authenticator'][] = $authenticatorClass;
-                } else {
-                    $stringValue = $firewall['custom_authenticator'];
-                    $firewall['custom_authenticator'] = [];
-                    $firewall['custom_authenticator'][] = $stringValue;
-                    $firewall['custom_authenticator'][] = $authenticatorClass;
-                }
+        if (isset($firewall['custom_authenticator'])) {
+            if (\is_array($firewall['custom_authenticator'])) {
+                $firewall['custom_authenticator'][] = $authenticatorClass;
             } else {
-                $firewall['custom_authenticator'] = $authenticatorClass;
-            }
-
-            if (!isset($firewall['entry_point']) && $chosenEntryPoint) {
-                $firewall['entry_point_empty_line'] = $this->manipulator->createEmptyLine();
-                $firewall['entry_point_comment'] = $this->manipulator->createCommentLine(
-                    ' the entry_point start() method determines what happens when an anonymous user accesses a protected page'
-                );
-                $firewall['entry_point'] = $authenticatorClass;
+                $stringValue = $firewall['custom_authenticator'];
+                $firewall['custom_authenticator'] = [];
+                $firewall['custom_authenticator'][] = $stringValue;
+                $firewall['custom_authenticator'][] = $authenticatorClass;
             }
         } else {
-            if (!isset($firewall['guard'])) {
-                $firewall['guard'] = [];
-            }
+            $firewall['custom_authenticator'] = $authenticatorClass;
+        }
 
-            if (!isset($firewall['guard']['authenticators'])) {
-                $firewall['guard']['authenticators'] = [];
-            }
-
-            $firewall['guard']['authenticators'][] = $authenticatorClass;
-
-            if (\count($firewall['guard']['authenticators']) > 1) {
-                $firewall['guard']['entry_point'] = $chosenEntryPoint ?? current($firewall['guard']['authenticators']);
-            }
+        if (!isset($firewall['entry_point']) && $chosenEntryPoint) {
+            $firewall['entry_point_empty_line'] = $this->manipulator->createEmptyLine();
+            $firewall['entry_point_comment'] = $this->manipulator->createCommentLine(
+                ' the entry_point start() method determines what happens when an anonymous user accesses a protected page'
+            );
+            $firewall['entry_point'] = $authenticatorClass;
         }
 
         if (!isset($firewall['logout']) && $logoutSetup) {
@@ -185,34 +159,37 @@ final class SecurityConfigUpdater
         $this->manipulator->setData($newData);
     }
 
-    private function updatePasswordHashers(UserClassConfiguration $userConfig, string $userClass, string $keyName = 'password_hashers'): void
+    private function updatePasswordHashers(UserClassConfiguration $userConfig, string $userClass): void
     {
         $newData = $this->manipulator->getData();
-        if ('password_hashers' === $keyName && isset($newData['security']['encoders'])) {
-            // fallback to "encoders" if the user already defined encoder config
-            $this->updatePasswordHashers($userConfig, $userClass, 'encoders');
 
+        if (isset($newData['security']['encoders'])) {
+            throw new \RuntimeException('Password Encoders are no longer supported by MakerBundle. Please update your "config/packages/security.yaml" file to use Password Hashers instead.');
+        }
+
+        // The security-bundle recipe sets the password hasher via Flex. If it exists, move on...
+        if (isset($newData['security']['password_hashers'][PasswordAuthenticatedUserInterface::class])) {
             return;
         }
 
-        if (!isset($newData['security'][$keyName])) {
-            // by convention, password_hashers are put before the user provider option
-            $providersIndex = array_search('providers', array_keys($newData['security']));
-            if (false === $providersIndex) {
-                $newData['security'] = [$keyName => []] + $newData['security'];
-            } else {
-                $newData['security'] = array_merge(
-                    \array_slice($newData['security'], 0, $providersIndex),
-                    [$keyName => []],
-                    \array_slice($newData['security'], $providersIndex)
-                );
-            }
+        // by convention, password_hashers are put before the user provider option
+        $providersIndex = array_search('providers', array_keys($newData['security']));
+
+        if (false === $providersIndex) {
+            $newData['security'] = ['password_hashers' => []] + $newData['security'];
+        } else {
+            $newData['security'] = array_merge(
+                \array_slice($newData['security'], 0, $providersIndex),
+                ['password_hashers' => []],
+                \array_slice($newData['security'], $providersIndex)
+            );
         }
 
-        $newData['security'][$keyName][$userClass] = [
-            'algorithm' => $userConfig->shouldUseArgon2() ? 'argon2i' : ((class_exists(NativePasswordHasher::class) || class_exists(NativePasswordEncoder::class)) ? 'auto' : 'bcrypt'),
+        $newData['security']['password_hashers'][$userClass] = [
+            'algorithm' => 'auto',
         ];
-        $newData['security'][$keyName]['_'] = $this->manipulator->createEmptyLine();
+
+        $newData['security']['password_hashers']['_'] = $this->manipulator->createEmptyLine();
 
         $this->manipulator->setData($newData);
     }

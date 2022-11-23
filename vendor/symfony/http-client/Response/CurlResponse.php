@@ -32,20 +32,22 @@ final class CurlResponse implements ResponseInterface, StreamableInterface
     }
     use TransportResponseTrait;
 
-    private static $performing = false;
-    private $multi;
+    private static bool $performing = false;
+    private CurlClientState $multi;
+
+    /**
+     * @var resource
+     */
     private $debugBuffer;
 
     /**
-     * @param \CurlHandle|resource|string $ch
-     *
      * @internal
      */
-    public function __construct(CurlClientState $multi, $ch, array $options = null, LoggerInterface $logger = null, string $method = 'GET', callable $resolveRedirect = null, int $curlVersion = null)
+    public function __construct(CurlClientState $multi, \CurlHandle|string $ch, array $options = null, LoggerInterface $logger = null, string $method = 'GET', callable $resolveRedirect = null, int $curlVersion = null, string $originalUrl = null)
     {
         $this->multi = $multi;
 
-        if (\is_resource($ch) || $ch instanceof \CurlHandle) {
+        if ($ch instanceof \CurlHandle) {
             $this->handle = $ch;
             $this->debugBuffer = fopen('php://temp', 'w+');
             if (0x074000 === $curlVersion) {
@@ -65,7 +67,9 @@ final class CurlResponse implements ResponseInterface, StreamableInterface
         $this->timeout = $options['timeout'] ?? null;
         $this->info['http_method'] = $method;
         $this->info['user_data'] = $options['user_data'] ?? null;
+        $this->info['max_duration'] = $options['max_duration'] ?? null;
         $this->info['start_time'] = $this->info['start_time'] ?? microtime(true);
+        $this->info['original_url'] = $originalUrl ?? $this->info['url'] ?? curl_getinfo($ch, \CURLINFO_EFFECTIVE_URL);
         $info = &$this->info;
         $headers = &$this->headers;
         $debugBuffer = $this->debugBuffer;
@@ -203,7 +207,7 @@ final class CurlResponse implements ResponseInterface, StreamableInterface
     /**
      * {@inheritdoc}
      */
-    public function getInfo(string $type = null)
+    public function getInfo(string $type = null): mixed
     {
         if (!$info = $this->finalInfo) {
             $info = array_merge($this->info, curl_getinfo($this->handle));
@@ -255,7 +259,9 @@ final class CurlResponse implements ResponseInterface, StreamableInterface
 
             $this->doDestruct();
         } finally {
-            curl_setopt($this->handle, \CURLOPT_VERBOSE, false);
+            if (\is_resource($this->handle) || $this->handle instanceof \CurlHandle) {
+                curl_setopt($this->handle, \CURLOPT_VERBOSE, false);
+            }
         }
     }
 
@@ -313,7 +319,7 @@ final class CurlResponse implements ResponseInterface, StreamableInterface
                 $id = (int) $ch = $info['handle'];
                 $waitFor = @curl_getinfo($ch, \CURLINFO_PRIVATE) ?: '_0';
 
-                if (\in_array($result, [\CURLE_SEND_ERROR, \CURLE_RECV_ERROR, /*CURLE_HTTP2*/ 16, /*CURLE_HTTP2_STREAM*/ 92], true) && $waitFor[1] && 'C' !== $waitFor[0]) {
+                if (\in_array($result, [\CURLE_SEND_ERROR, \CURLE_RECV_ERROR, /* CURLE_HTTP2 */ 16, /* CURLE_HTTP2_STREAM */ 92], true) && $waitFor[1] && 'C' !== $waitFor[0]) {
                     curl_multi_remove_handle($multi->handle, $ch);
                     $waitFor[1] = (string) ((int) $waitFor[1] - 1); // decrement the retry counter
                     curl_setopt($ch, \CURLOPT_PRIVATE, $waitFor);
@@ -329,7 +335,7 @@ final class CurlResponse implements ResponseInterface, StreamableInterface
                 }
 
                 $multi->handlesActivity[$id][] = null;
-                $multi->handlesActivity[$id][] = \in_array($result, [\CURLE_OK, \CURLE_TOO_MANY_REDIRECTS], true) || '_0' === $waitFor || curl_getinfo($ch, \CURLINFO_SIZE_DOWNLOAD) === curl_getinfo($ch, \CURLINFO_CONTENT_LENGTH_DOWNLOAD) ? null : new TransportException(sprintf('%s for "%s".', curl_strerror($result), curl_getinfo($ch, \CURLINFO_EFFECTIVE_URL)));
+                $multi->handlesActivity[$id][] = \in_array($result, [\CURLE_OK, \CURLE_TOO_MANY_REDIRECTS], true) || '_0' === $waitFor || curl_getinfo($ch, \CURLINFO_SIZE_DOWNLOAD) === curl_getinfo($ch, \CURLINFO_CONTENT_LENGTH_DOWNLOAD) ? null : new TransportException(ucfirst(curl_error($ch) ?: curl_strerror($result)).sprintf(' for "%s".', curl_getinfo($ch, \CURLINFO_EFFECTIVE_URL)));
             }
         } finally {
             self::$performing = false;
@@ -343,11 +349,6 @@ final class CurlResponse implements ResponseInterface, StreamableInterface
      */
     private static function select(ClientState $multi, float $timeout): int
     {
-        if (\PHP_VERSION_ID < 70211) {
-            // workaround https://bugs.php.net/76480
-            $timeout = min($timeout, 0.01);
-        }
-
         if ($multi->pauseExpiries) {
             $now = microtime(true);
 
@@ -405,7 +406,6 @@ final class CurlResponse implements ResponseInterface, StreamableInterface
                 if (curl_getinfo($ch, \CURLINFO_REDIRECT_COUNT) === $options['max_redirects']) {
                     curl_setopt($ch, \CURLOPT_FOLLOWLOCATION, false);
                 } elseif (303 === $info['http_code'] || ('POST' === $info['http_method'] && \in_array($info['http_code'], [301, 302], true))) {
-                    $info['http_method'] = 'HEAD' === $info['http_method'] ? 'HEAD' : 'GET';
                     curl_setopt($ch, \CURLOPT_POSTFIELDS, '');
                 }
             }
@@ -425,7 +425,12 @@ final class CurlResponse implements ResponseInterface, StreamableInterface
         $info['redirect_url'] = null;
 
         if (300 <= $statusCode && $statusCode < 400 && null !== $location) {
-            if (null === $info['redirect_url'] = $resolveRedirect($ch, $location)) {
+            if ($noContent = 303 === $statusCode || ('POST' === $info['http_method'] && \in_array($statusCode, [301, 302], true))) {
+                $info['http_method'] = 'HEAD' === $info['http_method'] ? 'HEAD' : 'GET';
+                curl_setopt($ch, \CURLOPT_CUSTOMREQUEST, $info['http_method']);
+            }
+
+            if (null === $info['redirect_url'] = $resolveRedirect($ch, $location, $noContent)) {
                 $options['max_redirects'] = curl_getinfo($ch, \CURLINFO_REDIRECT_COUNT);
                 curl_setopt($ch, \CURLOPT_FOLLOWLOCATION, false);
                 curl_setopt($ch, \CURLOPT_MAXREDIRS, $options['max_redirects']);

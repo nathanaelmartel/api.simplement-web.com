@@ -224,7 +224,7 @@ class MarkdownDescriptor extends Descriptor
                 if ($factory[0] instanceof Reference) {
                     $output .= "\n".'- Factory Service: `'.$factory[0].'`';
                 } elseif ($factory[0] instanceof Definition) {
-                    throw new \InvalidArgumentException('Factory is not describable.');
+                    $output .= "\n".sprintf('- Factory Service: inline factory service (%s)', $factory[0]->getClass() ? sprintf('`%s`', $factory[0]->getClass()) : 'not configured');
                 } else {
                     $output .= "\n".'- Factory Class: `'.$factory[0].'`';
                 }
@@ -274,7 +274,7 @@ class MarkdownDescriptor extends Descriptor
         $this->describeContainerDefinition($builder->getDefinition((string) $alias), array_merge($options, ['id' => (string) $alias]));
     }
 
-    protected function describeContainerParameter($parameter, array $options = [])
+    protected function describeContainerParameter(mixed $parameter, array $options = [])
     {
         $this->write(isset($options['parameter']) ? sprintf("%s\n%s\n\n%s", $options['parameter'], str_repeat('=', \strlen($options['parameter'])), $this->formatParameter($parameter)) : $parameter);
     }
@@ -326,7 +326,7 @@ class MarkdownDescriptor extends Descriptor
         }
     }
 
-    protected function describeCallable($callable, array $options = [])
+    protected function describeCallable(mixed $callable, array $options = [])
     {
         $string = '';
 

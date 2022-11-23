@@ -1,6 +1,18 @@
 CHANGELOG
 =========
 
+6.1
+---
+
+ * In cases where it will likely improve readability, strings containing single quotes will be double-quoted
+
+5.4
+---
+
+ * Add new `lint:yaml dirname --exclude=/dirname/foo.yaml --exclude=/dirname/bar.yaml`
+   option to exclude one or more specific files from multiple file list
+ * Allow negatable for the parse tags option with `--no-parse-tags`
+
 5.3
 ---
 

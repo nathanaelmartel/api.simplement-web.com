@@ -31,10 +31,10 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  */
 class TraceableResponse implements ResponseInterface, StreamableInterface
 {
-    private $client;
-    private $response;
-    private $content;
-    private $event;
+    private HttpClientInterface $client;
+    private ResponseInterface $response;
+    private mixed $content;
+    private ?StopwatchEvent $event;
 
     public function __construct(HttpClientInterface $client, ResponseInterface $response, &$content, StopwatchEvent $event = null)
     {
@@ -44,10 +44,7 @@ class TraceableResponse implements ResponseInterface, StreamableInterface
         $this->event = $event;
     }
 
-    /**
-     * @return array
-     */
-    public function __sleep()
+    public function __sleep(): array
     {
         throw new \BadMethodCallException('Cannot serialize '.__CLASS__);
     }
@@ -62,7 +59,7 @@ class TraceableResponse implements ResponseInterface, StreamableInterface
         try {
             $this->response->__destruct();
         } finally {
-            if ($this->event && $this->event->isStarted()) {
+            if ($this->event?->isStarted()) {
                 $this->event->stop();
             }
         }
@@ -73,7 +70,7 @@ class TraceableResponse implements ResponseInterface, StreamableInterface
         try {
             return $this->response->getStatusCode();
         } finally {
-            if ($this->event && $this->event->isStarted()) {
+            if ($this->event?->isStarted()) {
                 $this->event->lap();
             }
         }
@@ -84,7 +81,7 @@ class TraceableResponse implements ResponseInterface, StreamableInterface
         try {
             return $this->response->getHeaders($throw);
         } finally {
-            if ($this->event && $this->event->isStarted()) {
+            if ($this->event?->isStarted()) {
                 $this->event->lap();
             }
         }
@@ -99,7 +96,7 @@ class TraceableResponse implements ResponseInterface, StreamableInterface
 
             return $this->content = $this->response->getContent(false);
         } finally {
-            if ($this->event && $this->event->isStarted()) {
+            if ($this->event?->isStarted()) {
                 $this->event->stop();
             }
             if ($throw) {
@@ -117,7 +114,7 @@ class TraceableResponse implements ResponseInterface, StreamableInterface
 
             return $this->content = $this->response->toArray(false);
         } finally {
-            if ($this->event && $this->event->isStarted()) {
+            if ($this->event?->isStarted()) {
                 $this->event->stop();
             }
             if ($throw) {
@@ -130,12 +127,12 @@ class TraceableResponse implements ResponseInterface, StreamableInterface
     {
         $this->response->cancel();
 
-        if ($this->event && $this->event->isStarted()) {
+        if ($this->event?->isStarted()) {
             $this->event->stop();
         }
     }
 
-    public function getInfo(string $type = null)
+    public function getInfo(string $type = null): mixed
     {
         return $this->response->getInfo($type);
     }
@@ -205,7 +202,7 @@ class TraceableResponse implements ResponseInterface, StreamableInterface
         }
     }
 
-    private function checkStatusCode(int $code)
+    private function checkStatusCode(int $code): void
     {
         if (500 <= $code) {
             throw new ServerException($this);

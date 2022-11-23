@@ -2,14 +2,13 @@
 
 namespace <?= $namespace; ?>;
 
-use Symfony\Bundle\FrameworkBundle\Controller\<?= $parent_class_name; ?>;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+<?= $use_statements; ?>
 
-class <?= $class_name; ?> extends <?= $parent_class_name; ?><?= "\n" ?>
+class <?= $class_name; ?> extends AbstractController
 {
 <?= $generator->generateRouteForControllerMethod($route_path, $route_name); ?>
-    public function index(): Response
+    public function index(): <?php if ($with_template) { ?>Response<?php } else { ?>JsonResponse<?php } ?>
+
     {
 <?php if ($with_template) { ?>
         return $this->render('<?= $template_name ?>', [

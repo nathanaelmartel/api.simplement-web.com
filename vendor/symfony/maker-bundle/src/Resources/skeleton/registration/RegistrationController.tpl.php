@@ -4,7 +4,7 @@ namespace <?= $namespace; ?>;
 
 <?= $use_statements; ?>
 
-class <?= $class_name; ?> extends <?= $parent_class_name; ?><?= "\n" ?>
+class <?= $class_name; ?> extends AbstractController
 {
 <?php if ($will_verify_email): ?>
     private <?= $generator->getPropertyType($email_verifier_class_details) ?>$emailVerifier;
@@ -25,7 +25,7 @@ class <?= $class_name; ?> extends <?= $parent_class_name; ?><?= "\n" ?>
         if ($form->isSubmitted() && $form->isValid()) {
             // encode the plain password
             $user->set<?= ucfirst($password_field) ?>(
-            <?= $password_hasher_variable_name ?>-><?= $use_password_hasher ? 'hashPassword' : 'encodePassword' ?>(
+                <?= $password_hasher_variable_name ?>-><?= $use_password_hasher ? 'hashPassword' : 'encodePassword' ?>(
                     $user,
                     $form->get('plainPassword')->getData()
                 )

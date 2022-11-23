@@ -12,7 +12,7 @@
 namespace Symfony\Component\Security\Http\Event;
 
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
-use Symfony\Component\Security\Http\Authenticator\Passport\PassportInterface;
+use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Contracts\EventDispatcher\Event;
 
 /**
@@ -22,10 +22,10 @@ use Symfony\Contracts\EventDispatcher\Event;
  */
 class AuthenticationTokenCreatedEvent extends Event
 {
-    private $authenticatedToken;
-    private $passport;
+    private TokenInterface $authenticatedToken;
+    private Passport $passport;
 
-    public function __construct(TokenInterface $token, PassportInterface $passport)
+    public function __construct(TokenInterface $token, Passport $passport)
     {
         $this->authenticatedToken = $token;
         $this->passport = $passport;
@@ -41,7 +41,7 @@ class AuthenticationTokenCreatedEvent extends Event
         $this->authenticatedToken = $authenticatedToken;
     }
 
-    public function getPassport(): PassportInterface
+    public function getPassport(): Passport
     {
         return $this->passport;
     }

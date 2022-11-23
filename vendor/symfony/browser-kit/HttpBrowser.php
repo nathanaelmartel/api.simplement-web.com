@@ -26,7 +26,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 class HttpBrowser extends AbstractBrowser
 {
-    private $client;
+    private HttpClientInterface $client;
 
     public function __construct(HttpClientInterface $client = null, History $history = null, CookieJar $cookieJar = null)
     {
@@ -82,7 +82,7 @@ class HttpBrowser extends AbstractBrowser
         $fields = $request->getParameters();
 
         if ($uploadedFiles = $this->getUploadedFiles($request->getFiles())) {
-            $part = new FormDataPart(array_merge($fields, $uploadedFiles));
+            $part = new FormDataPart(array_replace_recursive($fields, $uploadedFiles));
 
             return [$part->bodyToIterable(), $part->getPreparedHeaders()->toArray()];
         }
@@ -91,7 +91,18 @@ class HttpBrowser extends AbstractBrowser
             return ['', []];
         }
 
-        return [http_build_query($fields, '', '&', \PHP_QUERY_RFC1738), ['Content-Type' => 'application/x-www-form-urlencoded']];
+        array_walk_recursive($fields, $caster = static function (&$v) use (&$caster) {
+            if (\is_object($v)) {
+                if ($vars = get_object_vars($v)) {
+                    array_walk_recursive($vars, $caster);
+                    $v = $vars;
+                } elseif (method_exists($v, '__toString')) {
+                    $v = (string) $v;
+                }
+            }
+        });
+
+        return [http_build_query($fields, '', '&'), ['Content-Type' => 'application/x-www-form-urlencoded']];
     }
 
     protected function getHeaders(Request $request): array

@@ -1,8 +1,34 @@
 CHANGELOG
 =========
 
+6.1
+---
+
+ * Add the `fields` option to the `Unique` constraint, to define which collection keys should be checked for uniqueness
+ * Deprecate `Constraint::$errorNames`, use `Constraint::ERROR_NAMES` instead
+ * Deprecate constraint `ExpressionLanguageSyntax`, use `ExpressionSyntax` instead
+ * Add method `__toString()` to `ConstraintViolationInterface` & `ConstraintViolationListInterface`
+ * Allow creating constraints with required arguments
+
+6.0
+---
+
+ * Remove the `allowEmptyString` option from the `Length` constraint
+ * Remove the `NumberConstraintTrait` trait
+ * `ValidatorBuilder::enableAnnotationMapping()` does not accept a Doctrine annotation reader anymore
+ * `ValidatorBuilder::enableAnnotationMapping()` won't automatically setup a Doctrine annotation reader anymore
+
+5.4
+---
+
+ * Add a `Cidr` constraint to validate CIDR notations
+ * Add a `CssColor` constraint to validate CSS colors
+ * Add support for `ConstraintViolationList::createFromMessage()`
+ * Add error's uid to `Count` and `Length` constraints with "exactly" option enabled
+
 5.3
 ---
+
  * Add the `normalizer` option to the `Unique` constraint
  * Add `Validation::createIsValidCallable()` that returns true/false instead of throwing exceptions
 
@@ -44,6 +70,7 @@ CHANGELOG
 5.1.0
 -----
 
+ * Add `AtLeastOneOf` constraint that is considered to be valid if at least one of the nested constraints is valid
  * added the `Hostname` constraint and validator
  * added the `alpha3` option to the `Country` and `Language` constraints
  * allow to define a reusable set of constraints by extending the `Compound` constraint

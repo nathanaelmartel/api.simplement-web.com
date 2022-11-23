@@ -37,7 +37,7 @@ use Symfony\Component\Routing\RouteCollection;
  */
 class TextDescriptor extends Descriptor
 {
-    private $fileLinkFormatter;
+    private ?FileLinkFormatter $fileLinkFormatter;
 
     public function __construct(FileLinkFormatter $fileLinkFormatter = null)
     {
@@ -93,11 +93,11 @@ class TextDescriptor extends Descriptor
             ['Route Name', $options['name'] ?? ''],
             ['Path', $route->getPath()],
             ['Path Regex', $route->compile()->getRegex()],
-            ['Host', ('' !== $route->getHost() ? $route->getHost() : 'ANY')],
-            ['Host Regex', ('' !== $route->getHost() ? $route->compile()->getHostRegex() : '')],
-            ['Scheme', ($route->getSchemes() ? implode('|', $route->getSchemes()) : 'ANY')],
-            ['Method', ($route->getMethods() ? implode('|', $route->getMethods()) : 'ANY')],
-            ['Requirements', ($route->getRequirements() ? $this->formatRouterConfig($route->getRequirements()) : 'NO CUSTOM')],
+            ['Host', '' !== $route->getHost() ? $route->getHost() : 'ANY'],
+            ['Host Regex', '' !== $route->getHost() ? $route->compile()->getHostRegex() : ''],
+            ['Scheme', $route->getSchemes() ? implode('|', $route->getSchemes()) : 'ANY'],
+            ['Method', $route->getMethods() ? implode('|', $route->getMethods()) : 'ANY'],
+            ['Requirements', $route->getRequirements() ? $this->formatRouterConfig($route->getRequirements()) : 'NO CUSTOM'],
             ['Class', \get_class($route)],
             ['Defaults', $this->formatRouterConfig($defaults)],
             ['Options', $this->formatRouterConfig($route->getOptions())],
@@ -315,7 +315,7 @@ class TextDescriptor extends Descriptor
                 if ($factory[0] instanceof Reference) {
                     $tableRows[] = ['Factory Service', $factory[0]];
                 } elseif ($factory[0] instanceof Definition) {
-                    throw new \InvalidArgumentException('Factory is not describable.');
+                    $tableRows[] = ['Factory Service', sprintf('inline factory service (%s)', $factory[0]->getClass() ?? 'class not configured')];
                 } else {
                     $tableRows[] = ['Factory Class', $factory[0]];
                 }
@@ -348,6 +348,8 @@ class TextDescriptor extends Descriptor
                     $argumentsInformation[] = sprintf('Service locator (%d element(s))', \count($argument->getValues()));
                 } elseif ($argument instanceof Definition) {
                     $argumentsInformation[] = 'Inlined Service';
+                } elseif ($argument instanceof \UnitEnum) {
+                    $argumentsInformation[] = ltrim(var_export($argument, true), '\\');
                 } elseif ($argument instanceof AbstractArgument) {
                     $argumentsInformation[] = sprintf('Abstract argument (%s)', $argument->getText());
                 } else {
@@ -402,7 +404,7 @@ class TextDescriptor extends Descriptor
         $this->describeContainerDefinition($builder->getDefinition((string) $alias), array_merge($options, ['id' => (string) $alias]));
     }
 
-    protected function describeContainerParameter($parameter, array $options = [])
+    protected function describeContainerParameter(mixed $parameter, array $options = [])
     {
         $options['output']->table(
             ['Parameter', 'Value'],
@@ -506,7 +508,7 @@ class TextDescriptor extends Descriptor
         }
     }
 
-    protected function describeCallable($callable, array $options = [])
+    protected function describeCallable(mixed $callable, array $options = [])
     {
         $this->writeText($this->formatCallable($callable), $options);
     }
@@ -539,7 +541,7 @@ class TextDescriptor extends Descriptor
         return trim($configAsString);
     }
 
-    private function formatControllerLink($controller, string $anchorText, callable $getContainer = null): string
+    private function formatControllerLink(mixed $controller, string $anchorText, callable $getContainer = null): string
     {
         if (null === $this->fileLinkFormatter) {
             return $anchorText;
@@ -561,7 +563,7 @@ class TextDescriptor extends Descriptor
             } else {
                 $r = new \ReflectionFunction($controller);
             }
-        } catch (\ReflectionException $e) {
+        } catch (\ReflectionException) {
             if (\is_array($controller)) {
                 $controller = implode('::', $controller);
             }
@@ -580,7 +582,7 @@ class TextDescriptor extends Descriptor
 
             try {
                 $r = new \ReflectionMethod($container->findDefinition($id)->getClass(), $method);
-            } catch (\ReflectionException $e) {
+            } catch (\ReflectionException) {
                 return $anchorText;
             }
         }
@@ -593,7 +595,7 @@ class TextDescriptor extends Descriptor
         return $anchorText;
     }
 
-    private function formatCallable($callable): string
+    private function formatCallable(mixed $callable): string
     {
         if (\is_array($callable)) {
             if (\is_object($callable[0])) {
