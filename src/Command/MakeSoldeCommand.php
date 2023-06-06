@@ -117,13 +117,13 @@ class MakeSoldeCommand extends Command
 
     private function getStartAtException($year, $period, $departement)
     {
-        if ((in_array($departement, ['06'])) && ('Été' == $period)) {
+        /*if ((in_array($departement, ['06'])) && ('Été' == $period)) {
             // premier mercredi du mois de juillet
             $start_at = new \DateTime($year.'-07-01');
             $start_at->modify('next wednesday');
 
             return new \DateTime($start_at->format('Y-m-d 08:00:00'));
-        }
+        }*/
 
         if ((in_array($departement, ['2A', '2B'])) && ('Été' == $period)) {
             // deuxième mercredi du mois de juillet
